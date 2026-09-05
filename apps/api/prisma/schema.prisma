@@ -239,11 +239,12 @@ model Partner {
 }
 
 model OnboardingTask {
-  id          String @id @default(uuid())
-  icon        String
-  title       String
-  description String
-  order       Int
+  id             String  @id @default(uuid())
+  icon           String
+  title          String
+  description    String
+  order          Int
+  requiresUpload Boolean @default(false)
 }
 
 model OnboardingProgress {

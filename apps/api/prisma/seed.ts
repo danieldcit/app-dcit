@@ -235,6 +235,11 @@ async function seedBeneficios() {
 }
 
 async function seedOnboarding() {
+  await prisma.onboardingTask.updateMany({
+    where: { title: 'Enviar documentos' },
+    data: { requiresUpload: true },
+  });
+
   const existing = await prisma.onboardingTask.findFirst();
   if (existing) return;
 
@@ -251,6 +256,7 @@ async function seedOnboarding() {
         title: 'Enviar documentos',
         description: 'RG, CPF, comprovante de residência e demais documentos admissionais.',
         order: 2,
+        requiresUpload: true,
       },
       {
         icon: 'play-circle-outline',

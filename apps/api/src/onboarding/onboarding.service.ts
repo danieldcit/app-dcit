@@ -6,11 +6,15 @@ export class OnboardingService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getTasks(userId: string) {
-    const [tasks, progress] = await Promise.all([
+    const [tasks, progress, admissionDocumentCount] = await Promise.all([
       this.prisma.onboardingTask.findMany({ orderBy: { order: 'asc' } }),
       this.prisma.onboardingProgress.findMany({ where: { userId } }),
+      this.prisma.admissionDocument.count({ where: { userId } }),
     ]);
-    return { tasks, completedTaskIds: progress.map((p) => p.taskId) };
+    return {
+      tasks,
+      completedTaskIds: this.mergeDerivedCompletion(tasks, progress.map((p) => p.taskId), admissionDocumentCount),
+    };
   }
 
   async listTeamProgress() {
@@ -25,8 +29,21 @@ export class OnboardingService {
       completed.push(entry.taskId);
       completedByUser.set(entry.userId, completed);
     }
+    const admissionDocumentCounts = await this.prisma.admissionDocument.groupBy({
+      by: ['userId'],
+      _count: { userId: true },
+      where: { userId: { in: employees.map((e) => e.userId) } },
+    });
+    const admissionDocumentCountByUser = new Map(
+      admissionDocumentCounts.map((row) => [row.userId, row._count.userId]),
+    );
     return employees.map((employee) => {
-      const completedTaskIds = completedByUser.get(employee.userId) ?? [];
+      const rawCompletedTaskIds = completedByUser.get(employee.userId) ?? [];
+      const completedTaskIds = this.mergeDerivedCompletion(
+        tasks,
+        rawCompletedTaskIds,
+        admissionDocumentCountByUser.get(employee.userId) ?? 0,
+      );
       return {
         userId: employee.userId,
         userName: employee.name,
@@ -36,6 +53,23 @@ export class OnboardingService {
         completedTaskIds,
       };
     });
+  }
+
+  // A task flagged requiresUpload (today, always "Enviar documentos") is
+  // never toggled by hand — it's derived from whether the colaborador has
+  // sent at least one admission document, from anywhere (the Documentos
+  // tab or the Onboarding task embedding the same upload boxes). This is
+  // additive to (never a replacement for) the OnboardingProgress-backed
+  // completion the other 4 tasks still use.
+  private mergeDerivedCompletion(
+    tasks: { id: string; requiresUpload: boolean }[],
+    progressTaskIds: string[],
+    admissionDocumentCount: number,
+  ): string[] {
+    if (admissionDocumentCount === 0) return progressTaskIds;
+    const uploadTask = tasks.find((t) => t.requiresUpload);
+    if (!uploadTask || progressTaskIds.includes(uploadTask.id)) return progressTaskIds;
+    return [...progressTaskIds, uploadTask.id];
   }
 
   async toggleTask(userId: string, taskId: string) {

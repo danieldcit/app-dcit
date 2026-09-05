@@ -19,10 +19,13 @@ describe('OnboardingService', () => {
   });
 
   afterAll(async () => {
+    await prisma.admissionDocument.deleteMany({
+      where: { userId: { in: ['user-upload-a', 'user-upload-b-no-docs', 'user-upload-c', 'user-upload-d'] } },
+    });
     await prisma.onboardingProgress.deleteMany();
     await prisma.onboardingTask.deleteMany();
     await prisma.employee.deleteMany({
-      where: { userId: { in: ['user-c', 'user-d', 'onboarding-trash-e'] } },
+      where: { userId: { in: ['user-c', 'user-d', 'onboarding-trash-e', 'user-upload-d'] } },
     });
     await prisma.onModuleDestroy();
   });
@@ -132,5 +135,101 @@ describe('OnboardingService', () => {
     expect(
       results.find((r) => r.userId === 'onboarding-trash-e'),
     ).toBeUndefined();
+  });
+
+  describe('derived completion for requiresUpload tasks', () => {
+    // Each case below creates its own requiresUpload-flagged task, and the
+    // production logic (mergeDerivedCompletion) assumes exactly one such
+    // task exists system-wide — true in production, where only "Enviar
+    // documentos" is flagged. Without this reset, the flagged tasks from
+    // earlier cases in this describe block would still be in the table when
+    // a later case runs, and `.find((t) => t.requiresUpload)` would resolve
+    // to whichever one was created first instead of the current case's own.
+    beforeEach(async () => {
+      await prisma.onboardingTask.deleteMany();
+    });
+
+    it('marks a requiresUpload task complete once the user has any admission document, without an OnboardingProgress row', async () => {
+      const task = await prisma.onboardingTask.create({
+        data: {
+          icon: 'cloud-upload-outline',
+          title: 'Enviar documentos',
+          description: 'RG, CPF...',
+          order: 1,
+          requiresUpload: true,
+        },
+      });
+      await prisma.admissionDocument.create({
+        data: { userId: 'user-upload-a', kind: 'rg', title: 'RG', photoUri: 'data:image/jpeg;base64,Zm9v' },
+      });
+
+      const result = await service.getTasks('user-upload-a');
+
+      expect(result.completedTaskIds).toContain(task.id);
+    });
+
+    it('does not mark a requiresUpload task complete for a user with zero admission documents', async () => {
+      const task = await prisma.onboardingTask.create({
+        data: {
+          icon: 'cloud-upload-outline',
+          title: 'Enviar documentos 2',
+          description: 'RG, CPF...',
+          order: 1,
+          requiresUpload: true,
+        },
+      });
+
+      const result = await service.getTasks('user-upload-b-no-docs');
+
+      expect(result.completedTaskIds).not.toContain(task.id);
+    });
+
+    it('does not double-count when both an OnboardingProgress row and an admission document exist', async () => {
+      const task = await prisma.onboardingTask.create({
+        data: {
+          icon: 'cloud-upload-outline',
+          title: 'Enviar documentos 3',
+          description: 'RG, CPF...',
+          order: 1,
+          requiresUpload: true,
+        },
+      });
+      await prisma.onboardingProgress.create({ data: { userId: 'user-upload-c', taskId: task.id } });
+      await prisma.admissionDocument.create({
+        data: { userId: 'user-upload-c', kind: 'cpf', title: 'CPF', photoUri: 'data:image/jpeg;base64,Zm9v' },
+      });
+
+      const result = await service.getTasks('user-upload-c');
+
+      expect(result.completedTaskIds.filter((id) => id === task.id)).toHaveLength(1);
+    });
+
+    it('factors derived completion into listTeamProgress too', async () => {
+      const task = await prisma.onboardingTask.create({
+        data: {
+          icon: 'cloud-upload-outline',
+          title: 'Enviar documentos 4',
+          description: 'RG, CPF...',
+          order: 1,
+          requiresUpload: true,
+        },
+      });
+      await prisma.employee.create({
+        data: {
+          userId: 'user-upload-d',
+          name: 'Dara Onboarding',
+          role: 'colaborador',
+          hireDate: new Date('2024-03-15'),
+        },
+      });
+      await prisma.admissionDocument.create({
+        data: { userId: 'user-upload-d', kind: 'rg', title: 'RG', photoUri: 'data:image/jpeg;base64,Zm9v' },
+      });
+
+      const results = await service.listTeamProgress();
+
+      const dara = results.find((r) => r.userId === 'user-upload-d');
+      expect(dara?.completedTaskIds).toContain(task.id);
+    });
   });
 });
