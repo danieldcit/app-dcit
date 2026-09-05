@@ -1,5 +1,7 @@
 import { AtestadoInputSchema, AtestadoStatusUpdateSchema } from "./atestado-submission";
 
+const PHOTO_DATA_URL = "data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh";
+
 describe("AtestadoInputSchema", () => {
   it("accepts a fully filled submission", () => {
     const result = AtestadoInputSchema.safeParse({
@@ -7,6 +9,7 @@ describe("AtestadoInputSchema", () => {
       crm: "CRM-MG 45213",
       medico: "Dr. Carlos Mendes",
       dias: 2,
+      photoDataUrl: PHOTO_DATA_URL,
     });
     expect(result.success).toBe(true);
   });
@@ -17,6 +20,7 @@ describe("AtestadoInputSchema", () => {
       crm: "CRM-MG 45213",
       medico: "Dr. Carlos Mendes",
       dias: 2,
+      photoDataUrl: PHOTO_DATA_URL,
     });
     expect(result.success).toBe(false);
   });
@@ -27,6 +31,7 @@ describe("AtestadoInputSchema", () => {
       crm: "CRM-MG 45213",
       medico: "Dr. Carlos Mendes",
       dias: 0,
+      photoDataUrl: PHOTO_DATA_URL,
     });
     expect(result.success).toBe(false);
   });
@@ -37,19 +42,19 @@ describe("AtestadoInputSchema", () => {
       crm: "CRM-MG 45213",
       medico: "Dr. Carlos Mendes",
       dias: 2,
-      photoDataUrl: "data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh",
+      photoDataUrl: PHOTO_DATA_URL,
     });
     expect(result.success).toBe(true);
   });
 
-  it("accepts a submission with no photoDataUrl at all", () => {
+  it("rejects a submission with no photoDataUrl at all", () => {
     const result = AtestadoInputSchema.safeParse({
       cid: "J06.9",
       crm: "CRM-MG 45213",
       medico: "Dr. Carlos Mendes",
       dias: 2,
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("rejects a photoDataUrl that isn't a data: image URL", () => {
@@ -67,6 +72,10 @@ describe("AtestadoInputSchema", () => {
 describe("AtestadoStatusUpdateSchema", () => {
   it("accepts aprovado", () => {
     expect(AtestadoStatusUpdateSchema.safeParse({ status: "aprovado" }).success).toBe(true);
+  });
+
+  it("accepts em_analise, without a reviewNote", () => {
+    expect(AtestadoStatusUpdateSchema.safeParse({ status: "em_analise" }).success).toBe(true);
   });
 
   it("accepts recusado with a reviewNote", () => {

@@ -4,10 +4,10 @@ import { AtestadosController } from './atestados.controller';
 import { AtestadosService } from './atestados.service';
 import { ANTHROPIC_CLIENT } from './anthropic-client.token';
 import { AuthModule } from '../auth/auth.module';
-import { PushModule } from '../push/push.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, PushModule],
+  imports: [AuthModule, NotificationsModule],
   controllers: [AtestadosController],
   providers: [
     AtestadosService,

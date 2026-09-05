@@ -28,6 +28,23 @@ const muralMessage = (title: string) => `"${title}" foi publicado no mural.`;
 const careerLevelUpMessage = (subNivel: string, novoSalario: number, notaFinal: number) =>
   `🚀 Parabéns! Você avançou para ${subNivel}. Novo salário: R$ ${novoSalario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Sua nota final: ${notaFinal.toFixed(1).replace('.', ',')}/10.`;
 
+export type DocumentKind = 'atestado' | 'admissional';
+
+const documentStatusMessage = (kind: DocumentKind, status: 'aprovado' | 'recusado') => {
+  const noun = kind === 'atestado' ? 'atestado' : 'documento admissional';
+  return status === 'aprovado' ? `Seu ${noun} foi aprovado.` : `Seu ${noun} foi reprovado.`;
+};
+
+const DOCUMENT_STATUS_LINK: Record<DocumentKind, string> = {
+  atestado: '/documentos?categoria=atestados',
+  admissional: '/documentos?categoria=admissionais',
+};
+
+const DOCUMENT_SUBMITTED_LABEL: Record<DocumentKind, string> = {
+  atestado: 'um atestado',
+  admissional: 'um documento admissional',
+};
+
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -162,6 +179,60 @@ export class NotificationsService {
         category: null,
         message: muralMessage(postTitle),
         link: '/mural',
+      })),
+    });
+
+    void Promise.all(
+      created.map((n) =>
+        this.expoPush.sendToUser(n.userId, {
+          title: 'Ponto DCIT',
+          body: n.message,
+          data: { notificationId: n.id, link: n.link },
+        }),
+      ),
+    );
+  }
+
+  async sendDocumentStatusChanged(
+    kind: DocumentKind,
+    userId: string,
+    status: 'aprovado' | 'recusado',
+  ): Promise<void> {
+    const message = documentStatusMessage(kind, status);
+    const created = await this.prisma.notification.create({
+      data: {
+        userId,
+        type: 'documento_status',
+        category: kind,
+        message,
+        link: DOCUMENT_STATUS_LINK[kind],
+      },
+    });
+
+    void this.expoPush.sendToUser(created.userId, {
+      title: 'Ponto DCIT',
+      body: created.message,
+      data: { notificationId: created.id, link: created.link },
+    });
+  }
+
+  async sendDocumentSubmitted(
+    kind: DocumentKind,
+    submitterUserId: string,
+    submitterName: string,
+  ): Promise<void> {
+    const recipients = await this.prisma.employee.findMany({
+      where: { role: { in: ['gestor', 'rh'] }, deletedAt: null },
+      select: { userId: true },
+    });
+
+    const created = await this.prisma.notification.createManyAndReturn({
+      data: recipients.map((r) => ({
+        userId: r.userId,
+        type: 'documento_enviado',
+        category: kind,
+        message: `${submitterName} enviou ${DOCUMENT_SUBMITTED_LABEL[kind]}.`,
+        link: '/documentos',
       })),
     });
 

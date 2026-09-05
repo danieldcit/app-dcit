@@ -22,11 +22,15 @@ import { readPhotoAsDataUrl } from "@/lib/photo-data-url";
 import { extractAtestadoData } from "@/lib/atestado-ocr";
 import { fetchMyAtestados, submitAtestado, type AtestadoRecord } from "@/lib/atestados-api";
 import {
+  ADMISSION_DOCUMENT_KIND_LABELS,
+  ADMISSION_DOCUMENT_KINDS,
+  ADMISSION_DOCUMENT_MAX_PHOTOS,
   fetchAdmissionDocuments,
   fetchCertifications,
   fetchPayslips,
   submitAdmissionDocument,
   submitCertification,
+  type AdmissionDocumentKind,
   type AdmissionDocumentRecord,
   type CertificationRecord,
   type PayslipRecord,
@@ -100,11 +104,7 @@ function StatusBadge({ status }: { status: DocumentStatus }) {
 }
 
 function AdmissionaisSection() {
-  const theme = useTheme();
   const [admissionDocuments, setAdmissionDocuments] = useState<AdmissionDocumentRecord[]>([]);
-  const [formOpen, setFormOpen] = useState(false);
-  const [title, setTitle] = useState("");
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -120,82 +120,153 @@ function AdmissionaisSection() {
     }, []),
   );
 
-  async function handlePickPhoto(source: "camera" | "library") {
-    const uri = await pickPhoto(source);
-    if (uri) setPhotoUri(uri);
+  const byKind = new Map(
+    admissionDocuments.filter((doc) => doc.kind).map((doc) => [doc.kind as string, doc]),
+  );
+
+  return (
+    <View style={styles.list}>
+      {ADMISSION_DOCUMENT_KINDS.map((kind) => (
+        <AdmissionDocumentBox
+          key={kind}
+          kind={kind}
+          label={ADMISSION_DOCUMENT_KIND_LABELS[kind]}
+          existing={byKind.get(kind) ?? null}
+          onSubmitted={(created) =>
+            setAdmissionDocuments((current) => [created, ...current.filter((d) => d.kind !== kind)])
+          }
+        />
+      ))}
+    </View>
+  );
+}
+
+// One fixed document type (RG, CPF, ...) — upload + current status live in
+// the same box; resubmitting replaces the whole photo set and puts the
+// document back to "enviado" (see DocumentosService.createAdmissionDocument).
+function AdmissionDocumentBox({
+  kind,
+  label,
+  existing,
+  onSubmitted,
+}: {
+  kind: AdmissionDocumentKind;
+  label: string;
+  existing: AdmissionDocumentRecord | null;
+  onSubmitted: (doc: AdmissionDocumentRecord) => void;
+}) {
+  const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const atMax = photoUris.length >= ADMISSION_DOCUMENT_MAX_PHOTOS;
+
+  function resetPhotos() {
+    setPhotoUris([]);
   }
 
-  function resetForm() {
-    setTitle("");
-    setPhotoUri(null);
-    setFormOpen(false);
+  async function handlePickPhoto(source: "camera" | "library") {
+    if (atMax) return;
+    const uri = await pickPhoto(source);
+    if (!uri) return;
+    setPhotoUris((current) => [...current, uri]);
+  }
+
+  function removePhoto(index: number) {
+    setPhotoUris((current) => current.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
-    if (!title.trim()) return;
+    if (photoUris.length === 0) {
+      Alert.alert("Foto obrigatória", "Tire ao menos uma foto antes de enviar.");
+      return;
+    }
     const token = await getSessionToken();
     if (!token) return;
-    const created = await submitAdmissionDocument(token, {
-      title: title.trim(),
-      photoUri: photoUri ?? undefined,
-    });
-    if (created) {
-      setAdmissionDocuments((current) => [created, ...current]);
-      resetForm();
+    setSubmitting(true);
+    try {
+      const photos = await Promise.all(photoUris.map((uri) => readPhotoAsDataUrl(uri)));
+      const created = await submitAdmissionDocument(token, { kind, photos });
+      if (created) {
+        onSubmitted(created);
+        resetPhotos();
+        setExpanded(false);
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
   return (
-    <View style={styles.list}>
+    <View
+      testID={`admission-box-${kind}`}
+      style={[styles.form, { backgroundColor: theme.backgroundElement }, Elevation.card]}
+    >
+      <View style={styles.boxHeader}>
+        <View style={styles.rowContent}>
+          <ThemedText type="smallBold">{label}</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {existing
+              ? `Enviado em ${new Date(existing.submittedAt).toLocaleDateString("pt-BR")}`
+              : "Nenhum documento enviado ainda."}
+          </ThemedText>
+        </View>
+        {existing ? <StatusBadge status={existing.status as DocumentStatus} /> : null}
+      </View>
+
       <ThemedButton
-        title={formOpen ? "Cancelar" : "Enviar documento admissional"}
-        onPress={() => (formOpen ? resetForm() : setFormOpen(true))}
+        title={expanded ? "Cancelar" : existing ? "Reenviar" : "Enviar"}
+        onPress={() => {
+          if (expanded) resetPhotos();
+          setExpanded((value) => !value);
+        }}
       />
 
-      {formOpen ? (
-        <View style={[styles.form, { backgroundColor: theme.backgroundElement }, Elevation.card]}>
+      {expanded ? (
+        <View style={styles.list}>
+          <ThemedText type="small" themeColor="textSecondary">
+            {`Fotos (até ${ADMISSION_DOCUMENT_MAX_PHOTOS}) — ${photoUris.length}/${ADMISSION_DOCUMENT_MAX_PHOTOS}`}
+          </ThemedText>
           <View style={styles.photoButtons}>
             <Pressable
-              style={[styles.photoButton, { backgroundColor: theme.background }]}
+              style={[
+                styles.photoButton,
+                { backgroundColor: theme.background, opacity: atMax ? 0.5 : 1 },
+              ]}
+              disabled={atMax}
               onPress={() => handlePickPhoto("camera")}
             >
               <Ionicons name="camera-outline" size={20} color={theme.secondary} />
               <ThemedText type="small">Tirar foto</ThemedText>
             </Pressable>
             <Pressable
-              style={[styles.photoButton, { backgroundColor: theme.background }]}
+              style={[
+                styles.photoButton,
+                { backgroundColor: theme.background, opacity: atMax ? 0.5 : 1 },
+              ]}
+              disabled={atMax}
               onPress={() => handlePickPhoto("library")}
             >
               <Ionicons name="image-outline" size={20} color={theme.secondary} />
               <ThemedText type="small">Escolher da galeria</ThemedText>
             </Pressable>
           </View>
-          {photoUri ? (
-            <Image source={{ uri: photoUri }} style={styles.preview} contentFit="cover" />
+          {photoUris.length > 0 ? (
+            <View style={styles.photoPreviewRow}>
+              {photoUris.map((uri, index) => (
+                <Pressable key={index} onPress={() => removePhoto(index)}>
+                  <Image source={{ uri }} style={styles.previewSmall} contentFit="cover" />
+                </Pressable>
+              ))}
+            </View>
           ) : null}
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Ex: Comprovante de residência atualizado"
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.input, { backgroundColor: theme.background, color: theme.text }]}
+          <ThemedButton
+            title={submitting ? "Enviando..." : "Enviar"}
+            onPress={submitting ? () => {} : handleSubmit}
           />
-          <ThemedButton title="Enviar" onPress={handleSubmit} />
         </View>
       ) : null}
-
-      {admissionDocuments.map((doc) => (
-        <View key={doc.id} style={[styles.row, { backgroundColor: theme.backgroundElement }, Elevation.card]}>
-          <Ionicons name="document-text-outline" size={20} color={theme.secondary} />
-          <View style={styles.rowContent}>
-            <ThemedText type="smallBold">{doc.title}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              Enviado em {new Date(doc.submittedAt).toLocaleDateString("pt-BR")}
-            </ThemedText>
-          </View>
-          <StatusBadge status={doc.status as DocumentStatus} />
-        </View>
-      ))}
     </View>
   );
 }
@@ -264,9 +335,13 @@ function AtestadosSection() {
   async function handleSubmit() {
     const parsedDias = parseInt(dias, 10);
     if (!cid.trim() || !crm.trim() || !medico.trim() || !parsedDias) return;
+    if (!photoUri) {
+      Alert.alert("Foto obrigatória", "Tire uma foto ou escolha uma da galeria antes de enviar.");
+      return;
+    }
     const token = await getSessionToken();
     if (!token) return;
-    const photoDataUrl = photoUri ? await readPhotoAsDataUrl(photoUri) : undefined;
+    const photoDataUrl = await readPhotoAsDataUrl(photoUri);
     const created = await submitAtestado(token, {
       cid: cid.trim(),
       crm: crm.trim(),
@@ -289,6 +364,9 @@ function AtestadosSection() {
 
       {formOpen ? (
         <View style={[styles.form, { backgroundColor: theme.backgroundElement }, Elevation.card]}>
+          <ThemedText type="small" themeColor="textSecondary">
+            Foto do atestado (obrigatória)
+          </ThemedText>
           <View style={styles.photoButtons}>
             <Pressable
               style={[styles.photoButton, { backgroundColor: theme.background }]}
@@ -635,6 +713,12 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  boxHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.three,
+  },
   statusBadge: {
     borderRadius: 8,
     paddingVertical: Spacing.one,
@@ -662,6 +746,16 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 160,
     borderRadius: 12,
+  },
+  photoPreviewRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.two,
+  },
+  previewSmall: {
+    width: 90,
+    height: 90,
+    borderRadius: 10,
   },
   input: {
     borderRadius: 12,

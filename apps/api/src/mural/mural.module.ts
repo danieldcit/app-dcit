@@ -8,5 +8,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
   imports: [AuthModule, NotificationsModule],
   controllers: [MuralController],
   providers: [MuralService],
+  exports: [MuralService],
 })
 export class MuralModule {}

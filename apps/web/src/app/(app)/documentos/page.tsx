@@ -1,13 +1,16 @@
+import { ADMISSION_DOCUMENT_KINDS, ADMISSION_DOCUMENT_KIND_LABELS } from "@ponto-dcit/shared-types";
+
 import type { Session } from "@/lib/session";
 import { EmptyState } from "@/components/empty-state";
 import { apiFetchJson } from "@/lib/api";
 import { getSession } from "@/lib/session";
 
-import { submitAdmissionDocument, submitCertification } from "./actions";
+import { submitCertification } from "./actions";
+import { AdmissionDocumentBox } from "./admission-document-box";
+import { AdmissionDocumentPhotoButton } from "./admission-document-photo-button";
 import { AtestadoForm } from "./atestado-form";
 import { AtestadoPhotoButton } from "./atestado-photo-button";
 import styles from "./documentos.module.css";
-import { PhotoUploadField } from "./photo-upload-field";
 
 type DocumentStatus = "enviado" | "em_analise" | "aprovado" | "recusado";
 
@@ -15,7 +18,7 @@ const STATUS_LABEL: Record<DocumentStatus, string> = {
   enviado: "Enviado",
   em_analise: "Em análise",
   aprovado: "Aprovado",
-  recusado: "Recusado",
+  recusado: "Reprovado",
 };
 
 type Atestado = {
@@ -34,8 +37,10 @@ type AdmissionDocument = {
   id: string;
   userId: string;
   userName: string;
+  kind: string | null;
   title: string;
   status: DocumentStatus;
+  reviewNote: string | null;
   submittedAt: string;
 };
 
@@ -54,6 +59,22 @@ type CertificationDoc = {
 // project's final review caught and fixed in its own formatDate).
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+}
+
+// Unlike formatDate above, atestado/admissional submission timestamps are
+// real instants, not UTC-midnight-encoded calendar dates — gestor/RH want
+// the actual wall-clock moment it was sent, so this anchors explicitly to
+// São Paulo time (not the ambient server timezone, since this renders in a
+// Server Component) rather than reusing formatDate's UTC anchor.
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function groupByColaborador<T extends { userId: string; userName: string }>(
@@ -132,7 +153,7 @@ async function TeamView({ session }: { session: Session }) {
                               {atestado.dias != null
                                 ? `${atestado.dias} dia(s)`
                                 : "Dias não informados"}{" "}
-                              · enviado em {formatDate(atestado.createdAt)}
+                              · enviado em {formatDateTime(atestado.createdAt)}
                             </span>
                           </div>
                           <span
@@ -162,7 +183,9 @@ async function TeamView({ session }: { session: Session }) {
                             ) : null}
                           </div>
                         ) : null}
-                        {session.role === "rh" ? <AtestadoPhotoButton id={atestado.id} /> : null}
+                        {session.role === "rh" ? (
+                          <AtestadoPhotoButton id={atestado.id} status={atestado.status} />
+                        ) : null}
                       </li>
                     );
                   })}
@@ -191,11 +214,12 @@ async function TeamView({ session }: { session: Session }) {
                         <div className={styles.itemInfo}>
                           <span className={styles.itemName}>{document.userName}</span>
                           <span className={styles.itemDetail}>
-                            {document.title} · enviado em {formatDate(document.submittedAt)}
+                            {document.title} · enviado em {formatDateTime(document.submittedAt)}
                           </span>
                         </div>
                         <span className={styles.status}>{STATUS_LABEL[document.status]}</span>
                       </div>
+                      <AdmissionDocumentPhotoButton id={document.id} status={document.status} />
                     </li>
                   ))}
                 </ul>
@@ -254,9 +278,10 @@ function resolveCategoria(value: string | undefined): Categoria {
 
 type AdmissionDocumentRecord = {
   id: string;
+  kind: string | null;
   title: string;
-  photoUri: string | null;
   status: DocumentStatus;
+  reviewNote: string | null;
   submittedAt: string;
 };
 
@@ -324,44 +349,37 @@ async function ColaboradorView({
 }
 
 function AdmissionaisSection({ documents }: { documents: AdmissionDocumentRecord[] }) {
+  const byKind = new Map(documents.filter((d) => d.kind).map((d) => [d.kind as string, d]));
+
   return (
     <div className={styles.section}>
-      <h2 className={styles.sectionTitle}>Enviar documento admissional</h2>
-      <form className={styles.form} action={submitAdmissionDocument}>
-        <label htmlFor="title">Título</label>
-        <input id="title" name="title" type="text" className={styles.textInput} required />
-        <PhotoUploadField name="photo" label="Foto (opcional)" />
-        <button type="submit" className={styles.submitButton}>
-          Enviar
-        </button>
-      </form>
-
-      <h2 className={styles.sectionTitle}>Meus documentos admissionais</h2>
-      {documents.length === 0 ? (
-        <p className={styles.sectionEmpty}>Nenhum documento admissional enviado ainda.</p>
-      ) : (
-        <ul className={styles.list}>
-          {documents.map((document) => (
-            <li key={document.id} className={styles.item}>
-              <div className={styles.itemHeader}>
-                <div className={styles.itemInfo}>
-                  <span className={styles.itemName}>{document.title}</span>
-                  <span className={styles.itemDetail}>
-                    Enviado em {formatDate(document.submittedAt)}
-                  </span>
-                </div>
-                <span
-                  className={`${styles.status} ${
-                    document.status === "aprovado" ? styles.statusAprovado : ""
-                  }`}
-                >
-                  {STATUS_LABEL[document.status]}
-                </span>
-              </div>
+      <h2 className={styles.sectionTitle}>Documentos admissionais</h2>
+      <p className={styles.sectionEmpty}>
+        Envie os documentos abaixo — até 3 fotos por documento. Reenviar substitui as fotos
+        anteriores e volta o status para análise.
+      </p>
+      <ul className={styles.list}>
+        {ADMISSION_DOCUMENT_KINDS.map((kind) => {
+          const existing = byKind.get(kind);
+          return (
+            <li key={kind}>
+              <AdmissionDocumentBox
+                kind={kind}
+                label={ADMISSION_DOCUMENT_KIND_LABELS[kind]}
+                existing={
+                  existing
+                    ? {
+                        status: existing.status,
+                        reviewNote: existing.reviewNote,
+                        submittedAtLabel: formatDate(existing.submittedAt),
+                      }
+                    : null
+                }
+              />
             </li>
-          ))}
-        </ul>
-      )}
+          );
+        })}
+      </ul>
     </div>
   );
 }

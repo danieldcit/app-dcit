@@ -14,6 +14,7 @@ import {
 import type { Request } from 'express';
 import {
   AdmissionDocumentInputSchema,
+  AdmissionDocumentStatusUpdateSchema,
   CertificationInputSchema,
   PayslipInputSchema,
   PayslipUpdateSchema,
@@ -85,7 +86,7 @@ export class DocumentosController {
     if (!result.success) {
       throw new BadRequestException(result.error.flatten());
     }
-    return this.documentos.createAdmissionDocument(req.user.sub, result.data);
+    return this.documentos.createAdmissionDocument(req.user.sub, req.user.name, result.data);
   }
 
   @UseGuards(AuthGuard)
@@ -99,6 +100,32 @@ export class DocumentosController {
   @Get('admissionais/equipe')
   listAllAdmissionDocuments() {
     return this.documentos.listAllAdmissionDocuments();
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('admissionais/:id/photos')
+  async getAdmissionDocumentPhotos(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    const photos = await this.documentos.getAdmissionDocumentPhotos(
+      id,
+      req.user.role,
+      req.user.sub,
+    );
+    return { photos: photos ?? [] };
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('gestor', 'rh')
+  @Patch('admissionais/:id/status')
+  async updateAdmissionDocumentStatus(@Param('id') id: string, @Body() body: unknown) {
+    const result = AdmissionDocumentStatusUpdateSchema.safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten());
+    }
+    return this.documentos.updateAdmissionDocumentStatus(
+      id,
+      result.data.status,
+      result.data.reviewNote,
+    );
   }
 
   @UseGuards(AuthGuard)

@@ -170,6 +170,7 @@ describe('AtestadosController', () => {
         crm: 'CRM-MG 45213',
         medico: 'Dr. Carlos Mendes',
         dias: 2,
+        photoDataUrl: 'data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh',
       },
       requestAs('user-1', 'colaborador'),
     );
@@ -179,6 +180,7 @@ describe('AtestadosController', () => {
       crm: 'CRM-MG 45213',
       medico: 'Dr. Carlos Mendes',
       dias: 2,
+      photoDataUrl: 'data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh',
     });
   });
 

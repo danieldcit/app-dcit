@@ -448,4 +448,111 @@ describe('NotificationsService', () => {
       });
     });
   });
+
+  describe('sendDocumentSubmitted', () => {
+    afterEach(async () => {
+      await prisma.employee.deleteMany({ where: { userId: { startsWith: 'user-doc-sub-' } } });
+    });
+
+    it('notifies every active gestor/rh, not colaborador', async () => {
+      await prisma.employee.create({
+        data: { userId: 'user-doc-sub-gestor', name: 'Gustavo Gestor', role: 'gestor', hireDate: new Date('2024-01-01') },
+      });
+      await prisma.employee.create({
+        data: { userId: 'user-doc-sub-rh', name: 'Rita RH', role: 'rh', hireDate: new Date('2024-01-01') },
+      });
+      await prisma.employee.create({
+        data: { userId: 'user-doc-sub-colaborador', name: 'Carla Colaboradora', role: 'colaborador', hireDate: new Date('2024-01-01') },
+      });
+      await prisma.employee.create({
+        data: { userId: 'user-doc-sub-gestor-inativo', name: 'Inativo', role: 'gestor', hireDate: new Date('2024-01-01'), deletedAt: new Date('2026-01-01') },
+      });
+
+      await service.sendDocumentSubmitted('atestado', 'user-doc-sub-colaborador', 'Carla Colaboradora');
+
+      const notifications = await prisma.notification.findMany({ where: { type: 'documento_enviado' } });
+      expect(notifications.map((n) => n.userId).sort()).toEqual(
+        ['user-doc-sub-gestor', 'user-doc-sub-rh'].sort(),
+      );
+      expect(notifications[0]).toMatchObject({
+        type: 'documento_enviado',
+        category: 'atestado',
+        message: 'Carla Colaboradora enviou um atestado.',
+        link: '/documentos',
+      });
+    });
+
+    it('uses the admissional wording for kind admissional', async () => {
+      await prisma.employee.create({
+        data: { userId: 'user-doc-sub-rh2', name: 'Rita RH', role: 'rh', hireDate: new Date('2024-01-01') },
+      });
+
+      await service.sendDocumentSubmitted('admissional', 'user-doc-sub-colaborador-2', 'Davi Colaborador');
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { type: 'documento_enviado', userId: 'user-doc-sub-rh2' },
+      });
+      expect(notification.message).toBe('Davi Colaborador enviou um documento admissional.');
+    });
+
+    it('sends a push to every recipient with the notification id and link', async () => {
+      await prisma.employee.create({
+        data: { userId: 'user-doc-sub-rh3', name: 'Rita RH', role: 'rh', hireDate: new Date('2024-01-01') },
+      });
+
+      await service.sendDocumentSubmitted('atestado', 'user-doc-sub-colaborador-3', 'Elis Colaboradora');
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { type: 'documento_enviado', userId: 'user-doc-sub-rh3' },
+      });
+      expect(sendToUser).toHaveBeenCalledWith('user-doc-sub-rh3', {
+        title: 'Ponto DCIT',
+        body: notification.message,
+        data: { notificationId: notification.id, link: '/documentos' },
+      });
+    });
+  });
+
+  describe('sendDocumentStatusChanged', () => {
+    it('notifies only the given user, aprovado wording', async () => {
+      await service.sendDocumentStatusChanged('atestado', 'user-doc-status-1', 'aprovado');
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { type: 'documento_status', userId: 'user-doc-status-1' },
+      });
+      expect(notification).toMatchObject({
+        category: 'atestado',
+        message: 'Seu atestado foi aprovado.',
+        link: '/documentos?categoria=atestados',
+      });
+    });
+
+    it('notifies with the reprovado wording and the admissional link', async () => {
+      await service.sendDocumentStatusChanged('admissional', 'user-doc-status-2', 'recusado');
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { type: 'documento_status', userId: 'user-doc-status-2' },
+      });
+      expect(notification).toMatchObject({
+        category: 'admissional',
+        message: 'Seu documento admissional foi reprovado.',
+        link: '/documentos?categoria=admissionais',
+      });
+    });
+
+    it('sends a push with the notification id and link', async () => {
+      await service.sendDocumentStatusChanged('atestado', 'user-doc-status-3', 'aprovado');
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { type: 'documento_status', userId: 'user-doc-status-3' },
+      });
+      expect(sendToUser).toHaveBeenCalledWith('user-doc-status-3', {
+        title: 'Ponto DCIT',
+        body: 'Seu atestado foi aprovado.',
+        data: { notificationId: notification.id, link: '/documentos?categoria=atestados' },
+      });
+    });
+  });
 });

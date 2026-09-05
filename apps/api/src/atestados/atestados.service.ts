@@ -14,7 +14,7 @@ import type {
 } from '@ponto-dcit/shared-types';
 import { ANTHROPIC_CLIENT } from './anthropic-client.token';
 import { PrismaService } from '../prisma/prisma.service';
-import { ExpoPushService } from '../push/expo-push.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // Haiku 4.5, not Opus/Sonnet: this is a bounded, well-specified extraction
 // task (read four fields off a document photo), not open-ended reasoning —
@@ -46,7 +46,7 @@ export class AtestadosService {
   constructor(
     @Inject(ANTHROPIC_CLIENT) private readonly anthropic: Anthropic,
     private readonly prisma: PrismaService,
-    private readonly push: ExpoPushService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async extract(input: AtestadoOcrRequest): Promise<AtestadoOcrResult> {
@@ -93,8 +93,8 @@ export class AtestadosService {
     }
   }
 
-  create(userId: string, userName: string, input: AtestadoInput) {
-    return this.prisma.atestado.create({
+  async create(userId: string, userName: string, input: AtestadoInput) {
+    const atestado = await this.prisma.atestado.create({
       data: {
         userId,
         userName,
@@ -105,6 +105,8 @@ export class AtestadosService {
         photoDataUrl: input.photoDataUrl,
       },
     });
+    await this.notifications.sendDocumentSubmitted('atestado', userId, userName);
+    return atestado;
   }
 
   // photoDataUrl excluded here too — a list response is never the right
@@ -182,20 +184,19 @@ export class AtestadosService {
 
   async updateStatus(
     id: string,
-    status: 'aprovado' | 'recusado',
+    status: 'em_analise' | 'aprovado' | 'recusado',
     reviewNote?: string,
   ) {
     const updated = await this.prisma.atestado.update({
       where: { id },
       data: { status, reviewNote: status === 'recusado' ? reviewNote : null },
     });
-    void this.push.sendToUser(updated.userId, {
-      title: 'Atestado',
-      body:
-        status === 'aprovado'
-          ? 'Seu atestado foi aprovado.'
-          : 'Seu atestado foi recusado.',
-    });
+    // Reverting to em_analise (undoing a prior decision) is a quiet action —
+    // no notification, same reasoning as why creating an atestado doesn't
+    // notify the colaborador themself.
+    if (status !== 'em_analise') {
+      await this.notifications.sendDocumentStatusChanged('atestado', updated.userId, status);
+    }
     return updated;
   }
 }

@@ -21,10 +21,12 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export function PhotoUploadField({
   name,
   label,
+  required,
   onPicked,
 }: {
   name: string;
   label: string;
+  required?: boolean;
   onPicked?: (photo: PickedPhoto) => void;
 }) {
   const [preview, setPreview] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export function PhotoUploadField({
         type="file"
         accept={ACCEPTED_TYPES.join(",")}
         onChange={handleChange}
+        required={required}
         className={styles.fileInput}
       />
       {error ? (

@@ -5,14 +5,17 @@ import { InternalServerErrorException } from '@nestjs/common';
 import { AtestadosService } from './atestados.service';
 import { ANTHROPIC_CLIENT } from './anthropic-client.token';
 import { PrismaService } from '../prisma/prisma.service';
-import { ExpoPushService } from '../push/expo-push.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('AtestadosService', () => {
   let service: AtestadosService;
   let prisma: PrismaService;
   const parseMock = jest.fn();
   const anthropicMock = { messages: { parse: parseMock } };
-  const pushMock = { sendToUser: jest.fn() };
+  const notificationsMock = {
+    sendDocumentStatusChanged: jest.fn(),
+    sendDocumentSubmitted: jest.fn(),
+  };
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -20,7 +23,7 @@ describe('AtestadosService', () => {
         AtestadosService,
         { provide: ANTHROPIC_CLIENT, useValue: anthropicMock },
         PrismaService,
-        { provide: ExpoPushService, useValue: pushMock },
+        { provide: NotificationsService, useValue: notificationsMock },
       ],
     }).compile();
 
@@ -99,6 +102,21 @@ describe('AtestadosService', () => {
     await expect(
       service.extract({ imageBase64: 'aGVsbG8=', mediaType: 'image/jpeg' }),
     ).rejects.toThrow(InternalServerErrorException);
+  });
+
+  it('notifies gestor/rh after creating an atestado', async () => {
+    await service.create('user-notify-submit', 'Nara Notificação', {
+      cid: 'J06.9',
+      crm: 'CRM-MG 1',
+      medico: 'Dr. Teste',
+      dias: 2,
+    });
+
+    expect(notificationsMock.sendDocumentSubmitted).toHaveBeenCalledWith(
+      'atestado',
+      'user-notify-submit',
+      'Nara Notificação',
+    );
   });
 
   it('creates and lists atestados scoped to the user', async () => {
@@ -243,10 +261,27 @@ describe('AtestadosService', () => {
     const updated = await service.updateStatus(created.id, 'aprovado');
 
     expect(updated.status).toBe('aprovado');
-    expect(pushMock.sendToUser).toHaveBeenCalledWith(
+    expect(notificationsMock.sendDocumentStatusChanged).toHaveBeenCalledWith(
+      'atestado',
       'user-d',
-      expect.objectContaining({ title: 'Atestado' }),
+      'aprovado',
     );
+  });
+
+  it('does not notify when reverting an atestado back to em_analise', async () => {
+    const created = await service.create('user-d2', 'Daniela Dois', {
+      cid: 'J06.9',
+      crm: 'CRM-MG 45213',
+      medico: 'Dr. Carlos Mendes',
+      dias: 2,
+    });
+    await service.updateStatus(created.id, 'aprovado');
+    notificationsMock.sendDocumentStatusChanged.mockClear();
+
+    const reverted = await service.updateStatus(created.id, 'em_analise');
+
+    expect(reverted.status).toBe('em_analise');
+    expect(notificationsMock.sendDocumentStatusChanged).not.toHaveBeenCalled();
   });
 
   it('persists the reviewNote when recusando an atestado', async () => {

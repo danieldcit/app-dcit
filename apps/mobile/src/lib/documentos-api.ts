@@ -1,6 +1,16 @@
-import type { AdmissionDocumentInput, CertificationInput } from "@ponto-dcit/shared-types";
+import {
+  ADMISSION_DOCUMENT_KINDS,
+  ADMISSION_DOCUMENT_KIND_LABELS,
+  ADMISSION_DOCUMENT_MAX_PHOTOS,
+  type AdmissionDocumentInput,
+  type AdmissionDocumentKind,
+  type CertificationInput,
+} from "@ponto-dcit/shared-types";
 
 import { API_URL } from "@/constants/api";
+
+export { ADMISSION_DOCUMENT_KINDS, ADMISSION_DOCUMENT_KIND_LABELS, ADMISSION_DOCUMENT_MAX_PHOTOS };
+export type { AdmissionDocumentKind };
 
 export type PayslipRecord = {
   id: string;
@@ -13,9 +23,10 @@ export type PayslipRecord = {
 
 export type AdmissionDocumentRecord = {
   id: string;
+  kind: string | null;
   title: string;
-  photoUri: string | null;
   status: string;
+  reviewNote: string | null;
   submittedAt: string;
 };
 

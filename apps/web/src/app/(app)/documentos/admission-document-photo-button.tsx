@@ -2,16 +2,16 @@
 
 import { useRef, useState } from "react";
 
-import { getAtestadoPhoto, updateAtestadoStatus } from "./actions";
+import { getAdmissionDocumentPhotos, updateAdmissionDocumentStatus } from "./actions";
 import styles from "./documentos.module.css";
 
 type PhotoStatus = "idle" | "loading" | "loaded" | "empty" | "error";
 type DocStatus = "enviado" | "em_analise" | "aprovado" | "recusado";
 
-export function AtestadoPhotoButton({ id, status }: { id: string; status: DocStatus }) {
+export function AdmissionDocumentPhotoButton({ id, status }: { id: string; status: DocStatus }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [photoStatus, setPhotoStatus] = useState<PhotoStatus>("idle");
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [currentStatus, setCurrentStatus] = useState<DocStatus>(status);
   const [rejecting, setRejecting] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
@@ -21,9 +21,9 @@ export function AtestadoPhotoButton({ id, status }: { id: string; status: DocSta
     dialogRef.current?.showModal();
     setPhotoStatus("loading");
     try {
-      const url = await getAtestadoPhoto(id);
-      setPhotoDataUrl(url);
-      setPhotoStatus(url ? "loaded" : "empty");
+      const loaded = await getAdmissionDocumentPhotos(id);
+      setPhotos(loaded);
+      setPhotoStatus(loaded.length > 0 ? "loaded" : "empty");
     } catch {
       setPhotoStatus("error");
     }
@@ -32,7 +32,7 @@ export function AtestadoPhotoButton({ id, status }: { id: string; status: DocSta
   async function decide(nextStatus: "em_analise" | "aprovado" | "recusado", note?: string) {
     setDeciding(true);
     try {
-      await updateAtestadoStatus(id, nextStatus, note);
+      await updateAdmissionDocumentStatus(id, nextStatus, note);
       setCurrentStatus(nextStatus);
       setRejecting(false);
       setReviewNote("");
@@ -49,61 +49,68 @@ export function AtestadoPhotoButton({ id, status }: { id: string; status: DocSta
 
       <dialog ref={dialogRef} className={styles.photoDialog}>
         {photoStatus === "loading" ? <p>Carregando...</p> : null}
-        {photoStatus === "loaded" && photoDataUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- data: URL, not an optimizable remote asset
-          <img src={photoDataUrl} alt="Foto do atestado" className={styles.photoImage} />
-        ) : null}
-        {photoStatus === "empty" ? <p>Este atestado não possui foto anexada.</p> : null}
+        {photoStatus === "loaded"
+          ? photos.map((photoDataUrl, index) => (
+              // eslint-disable-next-line @next/next/no-img-element -- data: URL, not an optimizable remote asset
+              <img
+                key={index}
+                src={photoDataUrl}
+                alt={`Foto ${index + 1} do documento`}
+                className={styles.photoImage}
+              />
+            ))
+          : null}
+        {photoStatus === "empty" ? <p>Este documento não possui foto anexada.</p> : null}
         {photoStatus === "error" ? <p>Não foi possível carregar a foto.</p> : null}
 
         {!rejecting ? (
           <div className={styles.decideRow}>
             <div className={styles.decideButtons}>
-            <button
-              type="button"
-              className={
-                currentStatus === "em_analise" || currentStatus === "enviado"
-                  ? `${styles.decideButton} ${styles.decideButtonActive}`
-                  : styles.decideButton
-              }
-              disabled={deciding}
-              onClick={() => decide("em_analise")}
-            >
-              Em Análise
-            </button>
-            <button
-              type="button"
-              className={
-                currentStatus === "aprovado"
-                  ? `${styles.decideButton} ${styles.decideButtonActive}`
-                  : styles.decideButton
-              }
-              disabled={deciding}
-              onClick={() => decide("aprovado")}
-            >
-              Aprovado
-            </button>
-            <button
-              type="button"
-              className={
-                currentStatus === "recusado"
-                  ? `${styles.decideButton} ${styles.decideButtonActive}`
-                  : styles.decideButton
-              }
-              disabled={deciding}
-              onClick={() => setRejecting(true)}
-            >
-              Reprovado
-            </button>
+              <button
+                type="button"
+                className={
+                  currentStatus === "em_analise" || currentStatus === "enviado"
+                    ? `${styles.decideButton} ${styles.decideButtonActive}`
+                    : styles.decideButton
+                }
+                disabled={deciding}
+                onClick={() => decide("em_analise")}
+              >
+                Em Análise
+              </button>
+              <button
+                type="button"
+                className={
+                  currentStatus === "aprovado"
+                    ? `${styles.decideButton} ${styles.decideButtonActive}`
+                    : styles.decideButton
+                }
+                disabled={deciding}
+                onClick={() => decide("aprovado")}
+              >
+                Aprovado
+              </button>
+              <button
+                type="button"
+                className={
+                  currentStatus === "recusado"
+                    ? `${styles.decideButton} ${styles.decideButtonActive}`
+                    : styles.decideButton
+                }
+                disabled={deciding}
+                onClick={() => setRejecting(true)}
+              >
+                Reprovado
+              </button>
             </div>
           </div>
         ) : (
           <div className={styles.decideRow}>
-            <label className={styles.dialogLabel} htmlFor={`reviewNote-${id}`}>
+            <label className={styles.dialogLabel} htmlFor={`reviewNote-admissional-${id}`}>
               Motivo da reprovação
             </label>
             <textarea
-              id={`reviewNote-${id}`}
+              id={`reviewNote-admissional-${id}`}
               className={styles.rejectTextarea}
               rows={3}
               value={reviewNote}

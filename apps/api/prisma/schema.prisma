@@ -157,13 +157,27 @@ model Certification {
 
 // Covers both RH-seeded historical admission docs (status "aprovado", from
 // before the app existed) and new in-app uploads (status "enviado").
+//
+// kind is nullable only to accommodate rows predating this field (seed data
+// and early free-text submissions, e.g. "Exame admissional") — every new
+// submission always sets one of the 5 fixed ADMISSION_DOCUMENT_KINDS values
+// (see packages/shared-types/src/documentos.ts). One row per (userId, kind):
+// resubmitting a kind replaces its photos and resets status, it doesn't
+// create a second row. Up to 3 photos per document — a fixed cap, not a
+// general N, so 3 plain nullable columns beat a child table here.
 model AdmissionDocument {
   id          String   @id @default(uuid())
   userId      String
+  kind        String?
   title       String
   photoUri    String?
+  photoUri2   String?
+  photoUri3   String?
   status      String   @default("enviado")
+  reviewNote  String?
   submittedAt DateTime @default(now())
+
+  @@unique([userId, kind])
 }
 
 // No payroll backend exists — seeded illustrative payslips per user, served

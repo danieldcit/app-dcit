@@ -1,3 +1,4 @@
+export { PHOTO_DATA_URL_PATTERN, photoDataUrlSchema } from "./photo-data-url";
 export { TimeEntryInputSchema } from "./time-entry";
 export type { TimeEntryInput } from "./time-entry";
 export { RoleSchema } from "./role";
@@ -29,11 +30,17 @@ export type {
   AtestadoStatusUpdate,
 } from "./atestado-submission";
 export {
+  ADMISSION_DOCUMENT_KINDS,
+  ADMISSION_DOCUMENT_KIND_LABELS,
+  ADMISSION_DOCUMENT_MAX_PHOTOS,
   AdmissionDocumentInputSchema,
+  AdmissionDocumentStatusUpdateSchema,
   CertificationInputSchema,
 } from "./documentos";
 export type {
   AdmissionDocumentInput,
+  AdmissionDocumentKind,
+  AdmissionDocumentStatusUpdate,
   CertificationInput,
 } from "./documentos";
 export { DeslocamentoInputSchema } from "./operacional";

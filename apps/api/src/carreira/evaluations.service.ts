@@ -4,6 +4,7 @@ import {
   CAREER_LADDER,
   COMPETENCIA_CATEGORIA,
   ELEGIBILIDADE_MEDIA_MINIMA,
+  NIVEL_LABELS,
   calcularMediaGeral,
   calcularSubNivelIndex,
   subNivelLabel,
@@ -11,12 +12,14 @@ import {
 } from '@ponto-dcit/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MuralService } from '../mural/mural.service';
 
 @Injectable()
 export class CareerEvaluationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly mural: MuralService,
   ) {}
 
   async getOpen(userId: string) {
@@ -134,21 +137,55 @@ export class CareerEvaluationsService {
     const elegivel = evaluation.proximoNivel !== null && obrigatoriosOk && mediaOk;
     const resultado = elegivel ? 'promovido' : 'em_desenvolvimento';
 
-    return this.prisma.$transaction(async (tx) => {
+    const proximoNivel = evaluation.proximoNivel as NivelEscada | null;
+    const promovendo = resultado === 'promovido' && confirmarPromocao && proximoNivel !== null;
+
+    // Read-only lookup done up front, outside the transaction, so the
+    // notification/mural side effects below never depend on a value only
+    // known inside the transaction's closure.
+    const employeeAtual = promovendo
+      ? await this.prisma.employee.findUniqueOrThrow({ where: { userId: evaluation.userId } })
+      : null;
+    const novoSalario =
+      promovendo && proximoNivel && employeeAtual
+        ? Math.max(employeeAtual.salarioMensal ?? 0, CAREER_LADDER[proximoNivel].degraus[0])
+        : null;
+
+    const decided = await this.prisma.$transaction(async (tx) => {
       const decided = await tx.careerEvaluation.update({
         where: { id },
         data: { status: 'decidida', resultado, decidedAt: new Date() },
       });
-      if (resultado === 'promovido' && confirmarPromocao && evaluation.proximoNivel) {
-        const primeiroDegrau = CAREER_LADDER[evaluation.proximoNivel as NivelEscada].degraus[0];
-        const employeeAtual = await tx.employee.findUniqueOrThrow({ where: { userId: evaluation.userId } });
-        const novoSalario = Math.max(employeeAtual.salarioMensal ?? 0, primeiroDegrau);
+      if (promovendo && proximoNivel && novoSalario !== null) {
         await tx.employee.update({
           where: { userId: evaluation.userId },
-          data: { nivel: evaluation.proximoNivel, salarioMensal: novoSalario },
+          data: { nivel: proximoNivel, salarioMensal: novoSalario },
         });
       }
       return decided;
     });
+
+    // Outside the transaction — same reasoning as save()'s own
+    // sendCareerLevelUp call: notification/mural side effects don't need to
+    // roll back with the DB write, and shouldn't hold the transaction open.
+    if (promovendo && proximoNivel && employeeAtual && novoSalario !== null) {
+      const nivelLabel = NIVEL_LABELS[proximoNivel];
+      await this.notifications.sendCareerLevelUp(
+        evaluation.userId,
+        nivelLabel,
+        novoSalario,
+        evaluation.mediaGeral ?? 0,
+      );
+      await this.mural.createPost(
+        {
+          glyph: '🚀',
+          title: `Promoção: ${employeeAtual.name} agora é ${nivelLabel}!`,
+          body: `Parabéns à ${employeeAtual.name} pela promoção para ${nivelLabel}! 🎉`,
+        },
+        evaluation.userId,
+      );
+    }
+
+    return decided;
   }
 }

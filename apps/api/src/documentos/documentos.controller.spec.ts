@@ -21,6 +21,8 @@ const GUARDED_HANDLERS = [
   'updatePayslip',
   'removePayslip',
   'listAllPayslips',
+  'getAdmissionDocumentPhotos',
+  'updateAdmissionDocumentStatus',
 ] as const;
 
 describe('DocumentosController guard metadata', () => {
@@ -41,6 +43,7 @@ describe('DocumentosController guard metadata', () => {
     'updatePayslip',
     'removePayslip',
     'listAllPayslips',
+    'updateAdmissionDocumentStatus',
   ] as const)('applies RolesGuard(gestor, rh) to %s', (handlerName) => {
     const guards = Reflect.getMetadata(
       GUARDS_METADATA,
@@ -88,6 +91,8 @@ describe('DocumentosController', () => {
     updatePayslip: jest.fn(),
     deletePayslip: jest.fn(),
     listAllPayslips: jest.fn(),
+    getAdmissionDocumentPhotos: jest.fn(),
+    updateAdmissionDocumentStatus: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -111,22 +116,67 @@ describe('DocumentosController', () => {
     };
   }
 
+  const PHOTO_DATA_URL = 'data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh';
+
   it('creates an admission document for the authenticated user', async () => {
     serviceMock.createAdmissionDocument.mockResolvedValue({ id: '1' });
 
     await controller.createAdmissionDocument(
-      { title: 'Comprovante' },
+      { kind: 'rg', photos: [PHOTO_DATA_URL] },
       requestAs('user-1'),
     );
 
-    expect(serviceMock.createAdmissionDocument).toHaveBeenCalledWith('user-1', {
-      title: 'Comprovante',
+    expect(serviceMock.createAdmissionDocument).toHaveBeenCalledWith('user-1', 'Test User', {
+      kind: 'rg',
+      photos: [PHOTO_DATA_URL],
     });
   });
 
-  it('rejects an empty admission document title', async () => {
+  it('fetches admission document photos for the authenticated user', async () => {
+    serviceMock.getAdmissionDocumentPhotos.mockResolvedValue([PHOTO_DATA_URL]);
+
+    const result = await controller.getAdmissionDocumentPhotos('adm-1', requestAs('user-1'));
+
+    expect(result).toEqual({ photos: [PHOTO_DATA_URL] });
+    expect(serviceMock.getAdmissionDocumentPhotos).toHaveBeenCalledWith('adm-1', 'colaborador', 'user-1');
+  });
+
+  it('returns an empty photo list when the service finds nothing', async () => {
+    serviceMock.getAdmissionDocumentPhotos.mockResolvedValue(null);
+
+    const result = await controller.getAdmissionDocumentPhotos('adm-missing', requestAs('user-1'));
+
+    expect(result).toEqual({ photos: [] });
+  });
+
+  it('updates an admission document status with a valid payload', async () => {
+    serviceMock.updateAdmissionDocumentStatus.mockResolvedValue({ id: 'adm-1', status: 'aprovado' });
+
+    await controller.updateAdmissionDocumentStatus('adm-1', { status: 'aprovado' });
+
+    expect(serviceMock.updateAdmissionDocumentStatus).toHaveBeenCalledWith('adm-1', 'aprovado', undefined);
+  });
+
+  it('rejects an admission document reprovado without a reviewNote', async () => {
     await expect(
-      controller.createAdmissionDocument({ title: '' }, requestAs('user-1')),
+      controller.updateAdmissionDocumentStatus('adm-1', { status: 'recusado' }),
+    ).rejects.toThrow(BadRequestException);
+    expect(serviceMock.updateAdmissionDocumentStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects a kind outside the fixed list', async () => {
+    await expect(
+      controller.createAdmissionDocument(
+        { kind: 'passaporte', photos: [PHOTO_DATA_URL] },
+        requestAs('user-1'),
+      ),
+    ).rejects.toThrow(BadRequestException);
+    expect(serviceMock.createAdmissionDocument).not.toHaveBeenCalled();
+  });
+
+  it('rejects an admission document with no photos', async () => {
+    await expect(
+      controller.createAdmissionDocument({ kind: 'rg', photos: [] }, requestAs('user-1')),
     ).rejects.toThrow(BadRequestException);
     expect(serviceMock.createAdmissionDocument).not.toHaveBeenCalled();
   });

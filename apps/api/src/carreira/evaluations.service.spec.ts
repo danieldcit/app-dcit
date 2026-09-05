@@ -5,6 +5,7 @@ import { CareerEvaluationsService } from './evaluations.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ExpoPushService } from '../push/expo-push.service';
+import { MuralService } from '../mural/mural.service';
 
 const USER_ID = 'evaluations-spec-user';
 
@@ -18,6 +19,7 @@ describe('CareerEvaluationsService', () => {
         CareerEvaluationsService,
         PrismaService,
         NotificationsService,
+        MuralService,
         { provide: ExpoPushService, useValue: { sendToUser: jest.fn() } },
       ],
     }).compile();
@@ -37,6 +39,7 @@ describe('CareerEvaluationsService', () => {
     await prisma.careerRequisitoCheck.deleteMany({ where: { evaluationId: { in: evaluationIds } } });
     await prisma.careerEvaluation.deleteMany({ where: { userId: USER_ID } });
     await prisma.notification.deleteMany({ where: { userId: USER_ID } });
+    await prisma.muralPost.deleteMany({ where: { title: { contains: 'Ana Teste' } } });
     await prisma.employee.delete({ where: { userId: USER_ID } });
     await prisma.onModuleDestroy();
   });
@@ -181,6 +184,20 @@ describe('CareerEvaluationsService', () => {
     // (Math.max against senior's first degrau, 6000) then keeps the higher
     // value, so the promotion lands at 6200, not senior's bare starting degrau.
     expect(employee.salarioMensal).toBe(6200);
+
+    const notification = await prisma.notification.findFirst({
+      where: { userId: USER_ID, type: 'carreira', message: { contains: 'Analista Sênior' } },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(notification?.message).toContain('Parabéns! Você avançou para Analista Sênior.');
+
+    const post = await prisma.muralPost.findFirst({
+      where: { title: { contains: 'Analista Sênior' } },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(post?.title).toBe('Promoção: Ana Teste agora é Analista Sênior!');
+    expect(post?.body).toContain('Ana Teste');
+    expect(post?.body).not.toContain('6200'); // never broadcast salary to the whole mural
   });
 
   it('decidir() computes resultado promovido but does NOT touch Employee when confirmarPromocao is false', async () => {

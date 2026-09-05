@@ -1,4 +1,5 @@
-import { fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
+import { Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as Sharing from "expo-sharing";
 import { saveSessionToken } from "@/lib/session";
@@ -97,15 +98,30 @@ describe("documentos screen", () => {
       if (url.endsWith("/atestados/mine")) {
         return Promise.resolve({ ok: true, json: async () => storedAtestados });
       }
+      if (url.endsWith("/documentos/admissionais") && options?.method === "POST") {
+        const body = JSON.parse(options.body as string) as { kind: string };
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: "adm-new",
+            kind: body.kind,
+            title: body.kind.toUpperCase(),
+            status: "enviado",
+            reviewNote: null,
+            submittedAt: new Date().toISOString(),
+          }),
+        });
+      }
       if (url.endsWith("/documentos/admissionais")) {
         return Promise.resolve({
           ok: true,
           json: async () => [
             {
               id: "adm-1",
-              title: "Contrato de trabalho assinado",
-              photoUri: null,
+              kind: "rg",
+              title: "RG",
               status: "aprovado",
+              reviewNote: null,
               submittedAt: "2024-03-15T00:00:00.000Z",
             },
           ],
@@ -148,20 +164,70 @@ describe("documentos screen", () => {
     expect(screen.getByText("Recusado")).toBeTruthy();
   });
 
-  it("shows the seeded admission documents when that category is selected", async () => {
+  it("shows the 5 fixed document boxes, with the seeded RG submission's date", async () => {
     renderRouter("src/app", { initialUrl: "/documentos" });
 
     fireEvent.press(screen.getByText("Admissionais"));
 
     await waitFor(() => {
-      expect(screen.getByText("Contrato de trabalho assinado")).toBeTruthy();
+      expect(screen.getByText(/^Enviado em \d{2}\/\d{2}\/2024$/)).toBeTruthy();
+    });
+    expect(screen.getByText("RG")).toBeTruthy();
+    expect(screen.getByText("CPF")).toBeTruthy();
+    expect(screen.getByText("Comprovante de endereço")).toBeTruthy();
+    expect(screen.getByText("Certidão de casamento")).toBeTruthy();
+    expect(screen.getByText("Certidão de nascimento dos filhos")).toBeTruthy();
+  });
+
+  it("submits an admissional document box with a photo", async () => {
+    (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: "file://fake-rg.jpg" }],
+    });
+
+    renderRouter("src/app", { initialUrl: "/documentos" });
+    fireEvent.press(screen.getByText("Admissionais"));
+    await waitFor(() => {
+      expect(screen.getByText("RG")).toBeTruthy();
+    });
+
+    const rgBox = within(screen.getByTestId("admission-box-rg"));
+    fireEvent.press(rgBox.getByText("Reenviar"));
+    fireEvent.press(rgBox.getAllByText("Tirar foto")[0]);
+    await waitFor(() => {
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+    });
+    fireEvent.press(rgBox.getByText("Enviar"));
+
+    await waitFor(() => {
+      const submitCall = (globalThis.fetch as jest.Mock).mock.calls.find(
+        ([url, options]: [string, RequestInit | undefined]) =>
+          url.endsWith("/documentos/admissionais") && options?.method === "POST",
+      );
+      expect(submitCall).toBeTruthy();
+      const body = JSON.parse(submitCall![1].body as string) as Record<string, unknown>;
+      expect(body).toEqual({
+        kind: "rg",
+        photos: ["data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh"],
+      });
     });
   });
 
   it("submits a new atestado through the manual form", async () => {
+    (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: "file://fake-photo.jpg" }],
+    });
+
     renderRouter("src/app", { initialUrl: "/documentos" });
 
     fireEvent.press(screen.getByText("Enviar Atestado"));
+    fireEvent.press(screen.getByText("Tirar foto"));
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Dados preenchidos automaticamente|Não foi possível ler/),
+      ).toBeTruthy();
+    });
     fireEvent.changeText(screen.getByPlaceholderText("CID"), "J06.9");
     fireEvent.changeText(screen.getByPlaceholderText("CRM do médico"), "CRM-MG 11111");
     fireEvent.changeText(screen.getByPlaceholderText("Nome do médico"), "Dr. Teste");
@@ -172,6 +238,30 @@ describe("documentos screen", () => {
       expect(screen.getAllByText(/CRM-MG 11111/).length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("Enviado").length).toBeGreaterThan(0);
+  });
+
+  it("blocks submitting an atestado without a photo", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    renderRouter("src/app", { initialUrl: "/documentos" });
+
+    fireEvent.press(screen.getByText("Enviar Atestado"));
+    fireEvent.changeText(screen.getByPlaceholderText("CID"), "J06.9");
+    fireEvent.changeText(screen.getByPlaceholderText("CRM do médico"), "CRM-MG 11111");
+    fireEvent.changeText(screen.getByPlaceholderText("Nome do médico"), "Dr. Teste");
+    fireEvent.changeText(screen.getByPlaceholderText("Quantidade de dias"), "3");
+    fireEvent.press(screen.getByText("Enviar"));
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Foto obrigatória",
+      expect.stringContaining("foto"),
+    );
+    expect(
+      (globalThis.fetch as jest.Mock).mock.calls.some(
+        ([url, options]: [string, RequestInit | undefined]) =>
+          url.endsWith("/atestados") && options?.method === "POST",
+      ),
+    ).toBe(false);
+    alertSpy.mockRestore();
   });
 
   it("opens the camera when Tirar foto is pressed and previews the captured photo", async () => {
