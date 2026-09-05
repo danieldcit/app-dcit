@@ -4,14 +4,15 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 
+import { AdmissionDocumentBox } from "@/components/admission-document-box";
 import { EmptyState } from "@/components/empty-state";
+import { StatusBadge } from "@/components/status-badge";
 import { TabBackground } from "@/components/tab-background";
 import { ThemedButton } from "@/components/themed-button";
 import { ThemedText } from "@/components/themed-text";
 import { useTheme } from "@/hooks/use-theme";
 import { Elevation, Spacing } from "@/constants/theme";
 import {
-  DOCUMENT_STATUS_LABEL,
   formatBRL,
   netPay,
   type DocumentStatus,
@@ -24,13 +25,10 @@ import { fetchMyAtestados, submitAtestado, type AtestadoRecord } from "@/lib/ate
 import {
   ADMISSION_DOCUMENT_KIND_LABELS,
   ADMISSION_DOCUMENT_KINDS,
-  ADMISSION_DOCUMENT_MAX_PHOTOS,
   fetchAdmissionDocuments,
   fetchCertifications,
   fetchPayslips,
-  submitAdmissionDocument,
   submitCertification,
-  type AdmissionDocumentKind,
   type AdmissionDocumentRecord,
   type CertificationRecord,
   type PayslipRecord,
@@ -86,23 +84,6 @@ export default function DocumentosScreen() {
   );
 }
 
-function StatusBadge({ status }: { status: DocumentStatus }) {
-  const theme = useTheme();
-  const color: Record<DocumentStatus, string> = {
-    enviado: theme.secondary,
-    em_analise: theme.secondary,
-    aprovado: theme.success,
-    recusado: theme.accent,
-  };
-  return (
-    <View style={[styles.statusBadge, { backgroundColor: color[status] }]}>
-      <ThemedText type="small" style={{ color: theme.onAccent }}>
-        {DOCUMENT_STATUS_LABEL[status]}
-      </ThemedText>
-    </View>
-  );
-}
-
 function AdmissionaisSection() {
   const [admissionDocuments, setAdmissionDocuments] = useState<AdmissionDocumentRecord[]>([]);
 
@@ -137,136 +118,6 @@ function AdmissionaisSection() {
           }
         />
       ))}
-    </View>
-  );
-}
-
-// One fixed document type (RG, CPF, ...) — upload + current status live in
-// the same box; resubmitting replaces the whole photo set and puts the
-// document back to "enviado" (see DocumentosService.createAdmissionDocument).
-function AdmissionDocumentBox({
-  kind,
-  label,
-  existing,
-  onSubmitted,
-}: {
-  kind: AdmissionDocumentKind;
-  label: string;
-  existing: AdmissionDocumentRecord | null;
-  onSubmitted: (doc: AdmissionDocumentRecord) => void;
-}) {
-  const theme = useTheme();
-  const [expanded, setExpanded] = useState(false);
-  const [photoUris, setPhotoUris] = useState<string[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-
-  const atMax = photoUris.length >= ADMISSION_DOCUMENT_MAX_PHOTOS;
-
-  function resetPhotos() {
-    setPhotoUris([]);
-  }
-
-  async function handlePickPhoto(source: "camera" | "library") {
-    if (atMax) return;
-    const uri = await pickPhoto(source);
-    if (!uri) return;
-    setPhotoUris((current) => [...current, uri]);
-  }
-
-  function removePhoto(index: number) {
-    setPhotoUris((current) => current.filter((_, i) => i !== index));
-  }
-
-  async function handleSubmit() {
-    if (photoUris.length === 0) {
-      Alert.alert("Foto obrigatória", "Tire ao menos uma foto antes de enviar.");
-      return;
-    }
-    const token = await getSessionToken();
-    if (!token) return;
-    setSubmitting(true);
-    try {
-      const photos = await Promise.all(photoUris.map((uri) => readPhotoAsDataUrl(uri)));
-      const created = await submitAdmissionDocument(token, { kind, photos });
-      if (created) {
-        onSubmitted(created);
-        resetPhotos();
-        setExpanded(false);
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <View
-      testID={`admission-box-${kind}`}
-      style={[styles.form, { backgroundColor: theme.backgroundElement }, Elevation.card]}
-    >
-      <View style={styles.boxHeader}>
-        <View style={styles.rowContent}>
-          <ThemedText type="smallBold">{label}</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {existing
-              ? `Enviado em ${new Date(existing.submittedAt).toLocaleDateString("pt-BR")}`
-              : "Nenhum documento enviado ainda."}
-          </ThemedText>
-        </View>
-        {existing ? <StatusBadge status={existing.status as DocumentStatus} /> : null}
-      </View>
-
-      <ThemedButton
-        title={expanded ? "Cancelar" : existing ? "Reenviar" : "Enviar"}
-        onPress={() => {
-          if (expanded) resetPhotos();
-          setExpanded((value) => !value);
-        }}
-      />
-
-      {expanded ? (
-        <View style={styles.list}>
-          <ThemedText type="small" themeColor="textSecondary">
-            {`Fotos (até ${ADMISSION_DOCUMENT_MAX_PHOTOS}) — ${photoUris.length}/${ADMISSION_DOCUMENT_MAX_PHOTOS}`}
-          </ThemedText>
-          <View style={styles.photoButtons}>
-            <Pressable
-              style={[
-                styles.photoButton,
-                { backgroundColor: theme.background, opacity: atMax ? 0.5 : 1 },
-              ]}
-              disabled={atMax}
-              onPress={() => handlePickPhoto("camera")}
-            >
-              <Ionicons name="camera-outline" size={20} color={theme.secondary} />
-              <ThemedText type="small">Tirar foto</ThemedText>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.photoButton,
-                { backgroundColor: theme.background, opacity: atMax ? 0.5 : 1 },
-              ]}
-              disabled={atMax}
-              onPress={() => handlePickPhoto("library")}
-            >
-              <Ionicons name="image-outline" size={20} color={theme.secondary} />
-              <ThemedText type="small">Escolher da galeria</ThemedText>
-            </Pressable>
-          </View>
-          {photoUris.length > 0 ? (
-            <View style={styles.photoPreviewRow}>
-              {photoUris.map((uri, index) => (
-                <Pressable key={index} onPress={() => removePhoto(index)}>
-                  <Image source={{ uri }} style={styles.previewSmall} contentFit="cover" />
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-          <ThemedButton
-            title={submitting ? "Enviando..." : "Enviar"}
-            onPress={submitting ? () => {} : handleSubmit}
-          />
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -713,17 +564,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  boxHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.three,
-  },
-  statusBadge: {
-    borderRadius: 8,
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.two,
-  },
   form: {
     borderRadius: 14,
     padding: Spacing.three,
@@ -746,16 +586,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 160,
     borderRadius: 12,
-  },
-  photoPreviewRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.two,
-  },
-  previewSmall: {
-    width: 90,
-    height: 90,
-    borderRadius: 10,
   },
   input: {
     borderRadius: 12,

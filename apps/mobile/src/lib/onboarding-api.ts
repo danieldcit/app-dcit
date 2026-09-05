@@ -6,6 +6,7 @@ export type OnboardingTaskRecord = {
   title: string;
   description: string;
   order: number;
+  requiresUpload: boolean;
 };
 
 export type OnboardingTasksResponse = {
