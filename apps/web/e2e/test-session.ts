@@ -67,6 +67,7 @@ export async function mockApi(
     horasResumo?: unknown[];
     bancoDeHorasEquipe?: unknown[];
     holerites?: unknown[];
+    myHolerites?: unknown[];
     bancoDeHorasMinhas?: unknown;
     myCompensations?: unknown[];
     feriasData?: unknown;
@@ -197,6 +198,11 @@ export async function mockApi(
   if (data.holerites) {
     await request.post(`${FAKE_API_URL}/__seed`, {
       data: { path: "/documentos/holerites/equipe", response: data.holerites },
+    });
+  }
+  if (data.myHolerites) {
+    await request.post(`${FAKE_API_URL}/__seed`, {
+      data: { path: "/documentos/holerites", response: data.myHolerites },
     });
   }
   if (data.bancoDeHorasMinhas) {

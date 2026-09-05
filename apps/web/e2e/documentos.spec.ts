@@ -115,6 +115,102 @@ test("rh can view the atestado photo; gestor never sees the button", async ({
   await expect(page.getByRole("button", { name: "Ver foto" })).toHaveCount(0);
 });
 
+test("gestor (not just rh) can view an admissionais photo and decide its status", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "gestor-1", role: "gestor", name: "Bruno Gestor" });
+  await mockApi(request, {
+    admissionDocuments: [
+      {
+        id: "adm-decide-1",
+        userId: "user-diana",
+        userName: "Diana Colaboradora",
+        kind: "rg",
+        title: "RG",
+        status: "em_analise",
+        reviewNote: null,
+        submittedAt: "2026-09-05T12:00:00.000Z",
+      },
+    ],
+  });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/documentos/admissionais/adm-decide-1/photos",
+    response: { photos: ["data:image/jpeg;base64,ZmFrZQ=="] },
+  });
+  await seedResponse(request, {
+    method: "PATCH",
+    path: "/documentos/admissionais/adm-decide-1/status",
+    response: { id: "adm-decide-1", status: "aprovado" },
+  });
+
+  await page.goto("/documentos");
+  await page.getByText("Diana Colaboradora (1)", { exact: true }).click();
+  await page.getByRole("button", { name: "Ver foto" }).click();
+  await expect(page.getByAltText("Foto 1 do documento")).toBeVisible();
+
+  await page.getByRole("button", { name: "Aprovado", exact: true }).click();
+
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.find(
+        (r) => r.method === "PATCH" && r.path === "/documentos/admissionais/adm-decide-1/status",
+      )?.body;
+    })
+    .toEqual({ status: "aprovado" });
+});
+
+test("reproving an admissionais document requires a justification", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "rh-1", role: "rh", name: "Carla RH" });
+  await mockApi(request, {
+    admissionDocuments: [
+      {
+        id: "adm-decide-2",
+        userId: "user-diana",
+        userName: "Diana Colaboradora",
+        kind: "cpf",
+        title: "CPF",
+        status: "em_analise",
+        reviewNote: null,
+        submittedAt: "2026-09-05T12:00:00.000Z",
+      },
+    ],
+  });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/documentos/admissionais/adm-decide-2/photos",
+    response: { photos: ["data:image/jpeg;base64,ZmFrZQ=="] },
+  });
+  await seedResponse(request, {
+    method: "PATCH",
+    path: "/documentos/admissionais/adm-decide-2/status",
+    response: { id: "adm-decide-2", status: "recusado" },
+  });
+
+  await page.goto("/documentos");
+  await page.getByText("Diana Colaboradora (1)", { exact: true }).click();
+  await page.getByRole("button", { name: "Ver foto" }).click();
+  await page.getByRole("button", { name: "Reprovado", exact: true }).click();
+  await page.getByLabel("Motivo da reprovação").fill("Foto ilegível.");
+  await page.getByRole("button", { name: "Confirmar reprovação" }).click();
+
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.find(
+        (r) => r.method === "PATCH" && r.path === "/documentos/admissionais/adm-decide-2/status",
+      )?.body;
+    })
+    .toEqual({ status: "recusado", reviewNote: "Foto ilegível." });
+});
+
 test("lists admission documents and certifications submitted by the team", async ({
   page,
   context,
@@ -127,7 +223,8 @@ test("lists admission documents and certifications submitted by the team", async
         id: "adm-1",
         userId: "user-1",
         userName: "Diana Colaboradora",
-        title: "Comprovante de residência",
+        kind: "comprovante_endereco",
+        title: "Comprovante de endereço",
         status: "enviado",
         submittedAt: "2026-08-20T12:00:00.000Z",
       },
@@ -152,7 +249,7 @@ test("lists admission documents and certifications submitted by the team", async
   await expect(page.getByText("Elias Colaborador (1)", { exact: true })).toBeVisible();
 
   await page.getByText("Diana Colaboradora (1)", { exact: true }).click();
-  await expect(page.getByText("Comprovante de residência")).toBeVisible();
+  await expect(page.getByText("Comprovante de endereço")).toBeVisible();
 
   await page.getByText("Elias Colaborador (1)", { exact: true }).click();
   await expect(page.getByText("AWS Certified")).toBeVisible();
@@ -205,6 +302,7 @@ test("shows a proper label instead of the raw status for an admissionais documen
         id: "adm-2",
         userId: "user-3",
         userName: "Fábio Colaborador",
+        kind: "rg",
         title: "RG",
         status: "enviado",
         submittedAt: "2026-08-20T12:00:00.000Z",
@@ -244,7 +342,7 @@ test("colaborador sees category tabs, with Atestados active by default", async (
   await expect(atestados).not.toHaveClass(/categoryTabActive/);
 });
 
-test("colaborador sees their own admissionais documents and can submit a new one without a photo", async ({
+test("colaborador sees the 5 fixed document boxes and can submit one with a photo", async ({
   page,
   context,
   request,
@@ -254,9 +352,10 @@ test("colaborador sees their own admissionais documents and can submit a new one
     myAdmissionDocuments: [
       {
         id: "adm-1",
-        title: "Comprovante de residência",
-        photoUri: null,
+        kind: "comprovante_endereco",
+        title: "Comprovante de endereço",
         status: "enviado",
+        reviewNote: null,
         submittedAt: "2026-08-20T12:00:00.000Z",
       },
     ],
@@ -267,50 +366,39 @@ test("colaborador sees their own admissionais documents and can submit a new one
     method: "POST",
     path: "/documentos/admissionais",
     status: 201,
-    response: { id: "adm-new", title: "RG", photoUri: null, status: "enviado", submittedAt: "2026-08-31T12:00:00.000Z" },
+    response: { id: "adm-new", kind: "rg", title: "RG", status: "enviado", submittedAt: "2026-08-31T12:00:00.000Z" },
   });
 
   await page.goto("/documentos?categoria=admissionais");
 
-  await expect(page.getByText("Comprovante de residência")).toBeVisible();
-  await expect(page.getByText("Enviado", { exact: true })).toBeVisible();
+  // All 5 fixed boxes render, regardless of which ones already have a submission.
+  for (const label of ["RG", "CPF", "Comprovante de endereço", "Certidão de casamento", "Certidão de nascimento dos filhos"]) {
+    await expect(page.getByText(label, { exact: true })).toBeVisible();
+  }
+  const comprovanteBox = page.locator("li").filter({ has: page.getByText("Comprovante de endereço", { exact: true }) });
+  await expect(comprovanteBox.getByText("Enviado", { exact: true })).toBeVisible();
+  await expect(comprovanteBox.getByRole("button", { name: "Reenviar" })).toBeVisible();
 
-  await seedResponse(request, {
-    method: "GET",
-    path: "/documentos/admissionais",
-    response: [
-      { id: "adm-new", title: "RG", photoUri: null, status: "enviado", submittedAt: "2026-08-31T12:00:00.000Z" },
-      { id: "adm-1", title: "Comprovante de residência", photoUri: null, status: "enviado", submittedAt: "2026-08-20T12:00:00.000Z" },
-    ],
+  const rgBox = page.locator("li").filter({ has: page.getByText("RG", { exact: true }) });
+  await expect(rgBox.getByRole("button", { name: "Enviar" })).toBeVisible();
+  await rgBox.locator('input[type="file"]').first().setInputFiles({
+    name: "rg.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from("fake-jpeg-bytes"),
   });
-
-  await page.getByLabel("Título").fill("RG");
-  await page.getByRole("button", { name: "Enviar" }).click();
+  await rgBox.getByRole("button", { name: "Enviar" }).click();
 
   await expect
     .poll(async () => {
       const recorded = await getRecordedRequests(request);
       return recorded.find((r) => r.method === "POST" && r.path === "/documentos/admissionais")?.body;
     })
-    .toEqual({ title: "RG" });
+    .toEqual({ kind: "rg", photos: [expect.stringMatching(/^data:image\/jpeg;base64,/)] });
 
-  await expect(page.getByText("RG", { exact: true })).toBeVisible();
+  await expect(rgBox.getByText("Documento enviado com sucesso!")).toBeVisible();
 });
 
-test("shows a message when there are no admissionais documents yet", async ({
-  page,
-  context,
-  request,
-}) => {
-  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
-  await mockApi(request, { myAdmissionDocuments: [], myCertifications: [], myAtestados: [] });
-
-  await page.goto("/documentos?categoria=admissionais");
-
-  await expect(page.getByText("Nenhum documento admissional enviado ainda.")).toBeVisible();
-});
-
-test("submitting the admissionais form with a photo sends it as photoUri", async ({
+test("submitting a box with 2 photos sends both in the photos array", async ({
   page,
   context,
   request,
@@ -321,31 +409,65 @@ test("submitting the admissionais form with a photo sends it as photoUri", async
     method: "POST",
     path: "/documentos/admissionais",
     status: 201,
-    response: {
-      id: "adm-photo",
-      title: "CNH",
-      photoUri: "data:image/jpeg;base64,ZmFrZQ==",
-      status: "enviado",
-      submittedAt: "2026-08-31T12:00:00.000Z",
-    },
+    response: { id: "adm-photo", kind: "cpf", title: "CPF", status: "enviado", submittedAt: "2026-08-31T12:00:00.000Z" },
   });
 
   await page.goto("/documentos?categoria=admissionais");
 
-  await page.getByLabel("Título").fill("CNH");
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "doc.jpg",
-    mimeType: "image/jpeg",
-    buffer: Buffer.from("fake-jpeg-bytes"),
-  });
-  await page.getByRole("button", { name: "Enviar" }).click();
+  const cpfBox = page.locator("li").filter({ has: page.getByText("CPF", { exact: true }) });
+  await cpfBox.locator('input[type="file"]').setInputFiles([
+    { name: "cpf-front.jpg", mimeType: "image/jpeg", buffer: Buffer.from("fake-jpeg-bytes-front") },
+    { name: "cpf-back.jpg", mimeType: "image/jpeg", buffer: Buffer.from("fake-jpeg-bytes-back") },
+  ]);
+  await cpfBox.getByRole("button", { name: "Enviar" }).click();
 
   await expect
     .poll(async () => {
       const recorded = await getRecordedRequests(request);
       return recorded.find((r) => r.method === "POST" && r.path === "/documentos/admissionais")?.body;
     })
-    .toEqual({ title: "CNH", photoUri: expect.stringMatching(/^data:image\/jpeg;base64,/) });
+    .toEqual({
+      kind: "cpf",
+      photos: [
+        expect.stringMatching(/^data:image\/jpeg;base64,/),
+        expect.stringMatching(/^data:image\/jpeg;base64,/),
+      ],
+    });
+});
+
+test("blocks submitting a document box without a photo", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [], myCertifications: [], myAtestados: [] });
+
+  await page.goto("/documentos?categoria=admissionais");
+
+  const rgBox = page.locator("li").filter({ has: page.getByText("RG", { exact: true }) });
+  await rgBox.getByRole("button", { name: "Enviar" }).click();
+
+  // Native "required" validation on the first photo slot blocks the submit
+  // synchronously — no request is ever dispatched, so there's no async
+  // race to poll for.
+  const recorded = await getRecordedRequests(request);
+  expect(recorded.some((r) => r.method === "POST" && r.path === "/documentos/admissionais")).toBe(
+    false,
+  );
+});
+
+test("shows every fixed document box as not-yet-sent when the colaborador has no submissions", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [], myCertifications: [], myAtestados: [] });
+
+  await page.goto("/documentos?categoria=admissionais");
+
+  await expect(page.getByText("Nenhum documento enviado ainda.")).toHaveCount(5);
 });
 
 test("rejects an unsupported file type with an inline error", async ({ page, context, request }) => {
@@ -354,14 +476,15 @@ test("rejects an unsupported file type with an inline error", async ({ page, con
 
   await page.goto("/documentos?categoria=admissionais");
 
-  await page.locator('input[type="file"]').setInputFiles({
+  const rgBox = page.locator("li").filter({ has: page.getByText("RG", { exact: true }) });
+  await rgBox.locator('input[type="file"]').first().setInputFiles({
     name: "doc.txt",
     mimeType: "text/plain",
     buffer: Buffer.from("not an image"),
   });
 
   await expect(
-    page.getByText("Formato não suportado — use JPEG, PNG ou WEBP.")
+    rgBox.getByText("Formato não suportado — use JPEG, PNG ou WEBP.")
   ).toBeVisible();
 });
 
@@ -423,7 +546,7 @@ test("shows a message when there are no certifications yet", async ({ page, cont
   await expect(page.getByText("Nenhuma certificação cadastrada ainda.")).toBeVisible();
 });
 
-test("colaborador sees their own atestados and can submit one manually, without a photo", async ({
+test("colaborador sees their own atestados and can submit one manually, with a photo", async ({
   page,
   context,
   request,
@@ -455,7 +578,7 @@ test("colaborador sees their own atestados and can submit one manually, without 
   await page.goto("/documentos?categoria=atestados");
 
   await expect(page.getByText("2 dia(s)")).toBeVisible();
-  await expect(page.getByText("Recusado")).toBeVisible();
+  await expect(page.getByText("Reprovado")).toBeVisible();
   await expect(page.getByText("Faltou assinatura do médico.")).toBeVisible();
 
   await seedResponse(request, {
@@ -471,6 +594,11 @@ test("colaborador sees their own atestados and can submit one manually, without 
   await page.getByLabel("CRM do médico").fill("CRM-SP 999");
   await page.getByLabel("Nome do médico").fill("Dra. Nova");
   await page.getByLabel("Quantidade de dias").fill("3");
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "atestado.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from("fake-jpeg-bytes"),
+  });
   await page.getByRole("button", { name: "Enviar" }).click();
 
   await expect
@@ -478,9 +606,31 @@ test("colaborador sees their own atestados and can submit one manually, without 
       const recorded = await getRecordedRequests(request);
       return recorded.find((r) => r.method === "POST" && r.path === "/atestados")?.body;
     })
-    .toEqual({ cid: "A01", crm: "CRM-SP 999", medico: "Dra. Nova", dias: 3 });
+    .toEqual({
+      cid: "A01",
+      crm: "CRM-SP 999",
+      medico: "Dra. Nova",
+      dias: 3,
+      photoDataUrl: expect.stringMatching(/^data:image\/jpeg;base64,/),
+    });
 
   await expect(page.getByText("3 dia(s)")).toBeVisible();
+});
+
+test("blocks submitting the atestado form without a photo", async ({ page, context, request }) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [], myCertifications: [], myAtestados: [] });
+
+  await page.goto("/documentos?categoria=atestados");
+
+  await page.getByLabel("CID").fill("A01");
+  await page.getByLabel("CRM do médico").fill("CRM-SP 999");
+  await page.getByLabel("Nome do médico").fill("Dra. Nova");
+  await page.getByLabel("Quantidade de dias").fill("3");
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  const recorded = await getRecordedRequests(request);
+  expect(recorded.some((r) => r.method === "POST" && r.path === "/atestados")).toBe(false);
 });
 
 test("shows a message when there are no atestados yet", async ({ page, context, request }) => {
