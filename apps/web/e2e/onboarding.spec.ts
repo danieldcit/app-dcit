@@ -169,6 +169,61 @@ test("submitting a document box from Onboarding posts to the same admissionais e
     .toEqual({ kind: "rg", photos: [expect.stringMatching(/^data:image\/jpeg;base64,/)] });
 });
 
+test("after uploading a document, the task flips to Concluído once the server reflects it", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [{ id: "task-2", title: "Enviar documentos", description: "RG, CPF...", requiresUpload: true }],
+      completedTaskIds: [],
+    },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/documentos/admissionais",
+    status: 201,
+    response: { id: "adm-new", kind: "rg", title: "RG", status: "enviado", submittedAt: "2026-09-05T12:00:00.000Z" },
+  });
+
+  await page.goto("/onboarding");
+  await page.getByText("Enviar documentos").click();
+
+  const taskItem = page.locator("li").filter({ has: page.getByText("Enviar documentos") });
+  const rgBox = taskItem.locator("li").filter({ has: page.getByText("RG", { exact: true }) });
+  await rgBox.locator('input[type="file"]').setInputFiles({
+    name: "rg.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from("fake-jpeg-bytes"),
+  });
+
+  // Re-seed the GET *before* triggering the submit, not after: the submit
+  // click synchronously fires AdmissionDocumentBox's router.refresh() right
+  // after its POST resolves, so seeding the new response only after the
+  // click would race an already-in-flight (stale) refresh. Same ordering
+  // documentos.spec.ts's "colaborador sees their own certifications..." test
+  // uses — seed the next GET response, then perform the action that triggers
+  // the refetch.
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [{ id: "task-2", title: "Enviar documentos", description: "RG, CPF...", requiresUpload: true }],
+      completedTaskIds: ["task-2"],
+    },
+  });
+
+  await rgBox.getByRole("button", { name: "Enviar" }).click();
+  await expect(rgBox.getByText("Documento enviado com sucesso!")).toBeVisible();
+
+  await expect(taskItem.getByText("Concluído", { exact: true })).toBeVisible();
+});
+
 test("toggling a non-upload task calls the toggle endpoint", async ({ page, context, request }) => {
   await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
   await mockApi(request, { myAdmissionDocuments: [] });

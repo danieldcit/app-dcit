@@ -129,4 +129,31 @@ describe("onboarding screen", () => {
       expect(body).toEqual({ kind: "rg", photos: ["data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh"] });
     });
   });
+
+  it("after submitting a document, the progress count updates to reflect the completed task", async () => {
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Enviar documentos")).toBeTruthy();
+    });
+    expect(screen.getByText("0 de 2 concluídos")).toBeTruthy();
+
+    fireEvent.press(screen.getByText("Enviar documentos"));
+
+    const rgBox = within(screen.getByTestId("admission-box-rg"));
+    fireEvent.press(rgBox.getByText("Enviar"));
+    fireEvent.press(rgBox.getAllByText("Tirar foto")[0]);
+    await waitFor(() => {
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+    });
+    fireEvent.press(rgBox.getByText("Enviar"));
+
+    // onboarding.tsx's onSubmitted callback in the requiresUpload branch
+    // calls setDone(...) optimistically as soon as the upload succeeds —
+    // this proves that state update actually reaches visible UI (the
+    // progress-count text), not just internal state nothing reads.
+    await waitFor(() => {
+      expect(screen.getByText("1 de 2 concluídos")).toBeTruthy();
+    });
+  });
 });

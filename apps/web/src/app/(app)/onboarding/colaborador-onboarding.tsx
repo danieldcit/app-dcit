@@ -2,25 +2,11 @@
 
 import { useState } from "react";
 
+import { ADMISSION_DOCUMENT_KINDS, ADMISSION_DOCUMENT_KIND_LABELS } from "@ponto-dcit/shared-types";
+
 import { AdmissionDocumentBox } from "../documentos/admission-document-box";
 import { toggleOnboardingTask } from "./actions";
 import styles from "./onboarding.module.css";
-
-const ADMISSION_DOCUMENT_KINDS = [
-  "rg",
-  "cpf",
-  "comprovante_endereco",
-  "certidao_casamento",
-  "certidao_nascimento_filhos",
-] as const;
-
-const ADMISSION_DOCUMENT_KIND_LABELS: Record<(typeof ADMISSION_DOCUMENT_KINDS)[number], string> = {
-  rg: "RG",
-  cpf: "CPF",
-  comprovante_endereco: "Comprovante de endereço",
-  certidao_casamento: "Certidão de casamento",
-  certidao_nascimento_filhos: "Certidão de nascimento dos filhos",
-};
 
 type Task = {
   id: string;
