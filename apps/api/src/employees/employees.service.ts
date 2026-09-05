@@ -5,11 +5,20 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 import {
   EmployeeCreateInput,
   EmployeeScheduleUpdate,
 } from '@ponto-dcit/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
+
+const BCRYPT_ROUNDS = 10;
+
+// Same value as every other dev/demo account (see prisma/seed.ts) — this is
+// local/demo data, not a real credential. No invite/set-your-own-password
+// flow exists yet, so every employee an RH/gestor gives an email to shares
+// this one password until that flow is built.
+const DEV_PASSWORD = 'dev12345';
 
 @Injectable()
 export class EmployeesService {
@@ -23,12 +32,18 @@ export class EmployeesService {
   }
 
   async updatePersonalData(userId: string, input: EmployeeCreateInput) {
+    const existing = await this.prisma.employee.findUnique({
+      where: { userId },
+      select: { passwordHash: true },
+    });
     try {
       return await this.prisma.employee.update({
         where: { userId },
         data: {
           name: input.name,
           role: input.role,
+          email: input.email,
+          passwordHash: this.resolvePasswordHash(input.email, existing?.passwordHash),
           cargo: input.cargo,
           team: input.team,
           nivel: input.nivel,
@@ -54,23 +69,49 @@ export class EmployeesService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        throw new ConflictException(await this.cpfConflictMessage(input.cpf));
+        throw new ConflictException(await this.uniqueConstraintMessage(error, input));
       }
       throw error;
     }
   }
 
+  // Login por senha (novo): quando um email é definido e o colaborador ainda
+  // não tem senha própria (nunca fez "esqueci minha senha"), ganha a senha
+  // padrão de desenvolvimento — nunca sobrescreve uma senha já existente.
+  // Limpar o email (null) desativa o login por senha, limpando o hash junto.
+  private resolvePasswordHash(
+    email: string | null | undefined,
+    existingHash: string | null | undefined,
+  ): string | null | undefined {
+    if (!email) return null;
+    if (existingHash) return undefined;
+    return bcrypt.hashSync(DEV_PASSWORD, BCRYPT_ROUNDS);
+  }
+
   /**
-   * cpf is globally @unique and soft-deleting an employee does not clear it,
-   * so a P2002 on cpf may point at an employee sitting in the lixeira rather
-   * than an active one. Look that up so the error message tells RH where the
-   * CPF actually is instead of implying it's stuck on the active roster.
+   * cpf and email are both globally @unique, and soft-deleting an employee
+   * does not clear either — so a P2002 may point at an employee sitting in
+   * the lixeira rather than an active one. error.meta.target tells us which
+   * column actually conflicted (Prisma/SQLite reports it as an array of
+   * column names).
    */
-  private async cpfConflictMessage(cpf: string | null): Promise<string> {
-    if (cpf) {
-      const conflicting = await this.prisma.employee.findUnique({
-        where: { cpf },
-      });
+  private async uniqueConstraintMessage(
+    error: Prisma.PrismaClientKnownRequestError,
+    input: { cpf: string | null; email: string | null },
+  ): Promise<string> {
+    const target = error.meta?.target;
+    const columns = Array.isArray(target) ? target : typeof target === 'string' ? [target] : [];
+
+    if (columns.includes('email') && input.email) {
+      const conflicting = await this.prisma.employee.findUnique({ where: { email: input.email } });
+      if (conflicting?.deletedAt) {
+        return 'Já existe um colaborador com esse email na lixeira — restaure-o ou exclua-o permanentemente antes de reutilizar o email.';
+      }
+      return 'Já existe um colaborador cadastrado com esse email.';
+    }
+
+    if (input.cpf) {
+      const conflicting = await this.prisma.employee.findUnique({ where: { cpf: input.cpf } });
       if (conflicting?.deletedAt) {
         return 'Já existe um colaborador com esse CPF na lixeira — restaure-o ou exclua-o permanentemente antes de reutilizar o CPF.';
       }
@@ -125,6 +166,8 @@ export class EmployeesService {
           userId: randomUUID(),
           name: input.name,
           role: input.role,
+          email: input.email,
+          passwordHash: this.resolvePasswordHash(input.email, undefined),
           cargo: input.cargo,
           team: input.team,
           nivel: input.nivel,
@@ -150,7 +193,7 @@ export class EmployeesService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        throw new ConflictException(await this.cpfConflictMessage(input.cpf));
+        throw new ConflictException(await this.uniqueConstraintMessage(error, input));
       }
       throw error;
     }

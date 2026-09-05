@@ -3,6 +3,7 @@ import { EmployeeCreateSchema } from "./employee-create";
 const VALID_PAYLOAD = {
   name: "Ana Colaboradora",
   role: "colaborador" as const,
+  email: "ana.colaboradora@dev.local",
   cargo: "desenvolvedor" as const,
   team: "SGN360",
   nivel: "pleno" as const,
@@ -31,6 +32,7 @@ describe("EmployeeCreateSchema", () => {
     const result = EmployeeCreateSchema.safeParse({
       name: "Ana Colaboradora",
       role: "colaborador",
+      email: null,
       cargo: null,
       team: null,
       nivel: null,
@@ -105,6 +107,16 @@ describe("EmployeeCreateSchema", () => {
   it("rejects a role outside colaborador/gestor/rh", () => {
     const result = EmployeeCreateSchema.safeParse({ ...VALID_PAYLOAD, role: "admin" });
     expect(result.success).toBe(false);
+  });
+
+  it("rejects a malformed email", () => {
+    const result = EmployeeCreateSchema.safeParse({ ...VALID_PAYLOAD, email: "not-an-email" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a null email (no password-login for this employee)", () => {
+    const result = EmployeeCreateSchema.safeParse({ ...VALID_PAYLOAD, email: null });
+    expect(result.success).toBe(true);
   });
 
   it("rejects a missing name", () => {

@@ -66,7 +66,7 @@ export async function createEmployee(
   if (!res.ok) {
     if (res.status === 409) {
       return {
-        error: "Já existe um colaborador cadastrado com esse CPF.",
+        error: await conflictMessage(res),
         success: false,
         successToken: _prevState.successToken,
       };
@@ -86,6 +86,21 @@ export async function createEmployee(
   // the last returned value, so plain `success: true` twice in a row would
   // be Object.is-equal and never re-trigger the effect after the 2nd save).
   return { error: null, success: true, successToken: Date.now() };
+}
+
+// The API's ConflictException carries a specific message distinguishing CPF
+// vs email vs lixeira conflicts (see EmployeesService.uniqueConstraintMessage)
+// — surface it as-is instead of guessing which field conflicted.
+async function conflictMessage(res: Response): Promise<string> {
+  try {
+    const body: unknown = await res.json();
+    if (body && typeof body === "object" && "message" in body && typeof body.message === "string") {
+      return body.message;
+    }
+  } catch {
+    // Fall through to the generic message below.
+  }
+  return "Já existe um colaborador cadastrado com esse CPF ou email.";
 }
 
 export async function deleteEmployee(formData: FormData) {
@@ -145,7 +160,7 @@ export async function updateEmployeePersonalData(
   if (!res.ok) {
     if (res.status === 409) {
       return {
-        error: "Já existe um colaborador cadastrado com esse CPF.",
+        error: await conflictMessage(res),
         success: false,
         successToken: _prevState.successToken,
       };

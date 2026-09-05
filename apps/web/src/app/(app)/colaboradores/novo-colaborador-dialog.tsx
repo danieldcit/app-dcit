@@ -9,6 +9,7 @@ import styles from "./colaboradores.module.css";
 const EMPTY_DEFAULTS: ColaboradorFormDefaults = {
   name: "",
   role: "colaborador",
+  email: null,
   cargo: null,
   team: null,
   nivel: null,
@@ -61,7 +62,11 @@ export function NovoColaboradorDialog({ convencoes }: { convencoes: { id: string
       <dialog ref={dialogRef} className={styles.dialog}>
         <p className={styles.dialogTitle}>Novo colaborador</p>
         <form ref={formRef} action={formAction}>
-          <ColaboradorFormFields defaults={EMPTY_DEFAULTS} convencoes={convencoes} />
+          <ColaboradorFormFields
+            defaults={EMPTY_DEFAULTS}
+            convencoes={convencoes}
+            showConvencao={false}
+          />
           {state.error ? <span className={styles.error}>{state.error}</span> : null}
           <div className={styles.dialogActions}>
             <button

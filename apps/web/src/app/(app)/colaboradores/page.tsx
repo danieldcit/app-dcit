@@ -2,7 +2,7 @@ import { EmptyState } from "@/components/empty-state";
 import { apiFetchJson } from "@/lib/api";
 import { getSession } from "@/lib/session";
 
-import { ColaboradoresRow } from "./colaboradores-row";
+import { ColaboradoresList } from "./colaboradores-list";
 import { LixeiraSection } from "./lixeira-section";
 import { NovoColaboradorDialog } from "./novo-colaborador-dialog";
 import styles from "./colaboradores.module.css";
@@ -11,6 +11,7 @@ type Employee = {
   userId: string;
   name: string;
   role: "colaborador" | "gestor" | "rh";
+  email: string | null;
   cargo: string | null;
   team: string | null;
   nivel: string | null;
@@ -54,11 +55,7 @@ export default async function ColaboradoresPage() {
       {employees.length === 0 ? (
         <p className={styles.subheading}>Nenhum colaborador cadastrado ainda.</p>
       ) : (
-        <ul className={styles.list}>
-          {employees.map((employee) => (
-            <ColaboradoresRow key={employee.userId} employee={employee} convencoes={convencoes} />
-          ))}
-        </ul>
+        <ColaboradoresList employees={employees} convencoes={convencoes} />
       )}
       <LixeiraSection />
     </div>

@@ -216,6 +216,7 @@ describe('EmployeesController', () => {
   const VALID_CREATE_BODY = {
     name: 'Ana Colaboradora',
     role: 'colaborador',
+    email: null,
     cargo: null,
     team: null,
     nivel: null,

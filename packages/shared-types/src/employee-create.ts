@@ -41,6 +41,10 @@ export const NIVEIS = ["junior", "pleno", "senior", "especialista"] as const;
 export const EmployeeCreateSchema = z.object({
   name: z.string().min(1),
   role: RoleSchema,
+  // Login por senha: quando presente, o colaborador ganha uma senha padrão
+  // de desenvolvimento (ver DEV_PASSWORD em employees.service.ts) — ainda
+  // não há fluxo de convite/definição de senha própria.
+  email: z.string().email().nullable(),
   cargo: z.enum(CARGOS).nullable(),
   team: z.string().min(1).nullable(),
   nivel: z.enum(NIVEIS).nullable(),

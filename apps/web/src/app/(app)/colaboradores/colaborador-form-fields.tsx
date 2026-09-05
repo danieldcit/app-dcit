@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, type ChangeEvent } from "react";
 
 import styles from "./colaboradores.module.css";
 
@@ -60,19 +60,47 @@ const CARGO_LABELS: Record<(typeof CARGOS)[number], string> = {
 };
 
 const NIVEIS = ["junior", "pleno", "senior", "especialista"] as const;
+type Nivel = (typeof NIVEIS)[number];
 
 const TEAM_SUGGESTIONS = ["SG MONITOR", "SGN 360", "SGM365", "SGP PORTAL"] as const;
 
-const NIVEL_LABELS: Record<(typeof NIVEIS)[number], string> = {
+// Deve ficar em sincronia com CAREER_LADDER em
+// packages/shared-types/src/career-ladder.ts (mesmo raciocínio de
+// CARGOS/ESTADOS_CIVIS/UFS acima) — os 4 degraus fixos de salário por
+// nível, usados para preencher automaticamente o salário mensal a partir
+// da senioridade escolhida no cadastro.
+const NIVEL_DEGRAUS: Record<Nivel, number[]> = {
+  junior: [2500, 2900, 3400, 3800],
+  pleno: [4000, 4700, 5500, 6200],
+  senior: [6000, 6800, 7700, 8500],
+  especialista: [8500, 9200, 9800, 10500],
+};
+
+const SUB_NIVEL_NOME_BASE: Record<Nivel, string> = {
   junior: "Júnior",
   pleno: "Pleno",
   senior: "Sênior",
   especialista: "Especialista",
 };
 
+// "junior-2" (Júnior 3), "especialista" (sem sub-nível), ou "" (sem nível
+// definido) — combina o nivel armazenado com o degrau de salário mais
+// próximo para pré-selecionar o dropdown ao editar um colaborador existente.
+function composeNivelValue(nivel: string | null, salarioMensal: number | null): string {
+  if (!nivel || !(nivel in NIVEL_DEGRAUS)) return "";
+  if (nivel === "especialista") return "especialista";
+  const degraus = NIVEL_DEGRAUS[nivel as Nivel];
+  let index = 0;
+  for (let i = 0; i < degraus.length; i++) {
+    if (salarioMensal !== null && degraus[i] <= salarioMensal) index = i;
+  }
+  return `${nivel}-${index}`;
+}
+
 export type ColaboradorFormDefaults = {
   name: string;
   role: "colaborador" | "gestor" | "rh";
+  email: string | null;
   cargo: string | null;
   team: string | null;
   nivel: string | null;
@@ -102,15 +130,42 @@ type ViaCepResponse = {
 export function ColaboradorFormFields({
   defaults,
   convencoes,
+  showConvencao = true,
 }: {
   defaults: ColaboradorFormDefaults;
   convencoes: { id: string; nome: string }[];
+  showConvencao?: boolean;
 }) {
   const ruaRef = useRef<HTMLInputElement>(null);
   const bairroRef = useRef<HTMLInputElement>(null);
   const cidadeRef = useRef<HTMLInputElement>(null);
   const estadoRef = useRef<HTMLSelectElement>(null);
   const initialCepDigitsRef = useRef((defaults.enderecoCep ?? "").replace(/\D/g, ""));
+  const nivelHiddenRef = useRef<HTMLInputElement>(null);
+  const salarioRef = useRef<HTMLInputElement>(null);
+
+  // O salário é sempre derivado do degrau fixo do nível escolhido (ver
+  // NIVEL_DEGRAUS) — nunca digitado à mão — então o <select> visível não
+  // carrega name="nivel" diretamente: ele só decide o valor de um input
+  // oculto (nivel) e do campo de salário (somente leitura).
+  function handleNivelChange(event: ChangeEvent<HTMLSelectElement>) {
+    const value = event.target.value;
+    if (!value) {
+      if (nivelHiddenRef.current) nivelHiddenRef.current.value = "";
+      if (salarioRef.current) salarioRef.current.value = "";
+      return;
+    }
+    if (value === "especialista") {
+      if (nivelHiddenRef.current) nivelHiddenRef.current.value = "especialista";
+      if (salarioRef.current) salarioRef.current.value = String(NIVEL_DEGRAUS.especialista[0]);
+      return;
+    }
+    const [nivel, indexStr] = value.split("-") as [Nivel, string];
+    if (nivelHiddenRef.current) nivelHiddenRef.current.value = nivel;
+    if (salarioRef.current) {
+      salarioRef.current.value = String(NIVEL_DEGRAUS[nivel][Number(indexStr)]);
+    }
+  }
 
   async function handleCepBlur(rawCep: string) {
     const digits = rawCep.replace(/\D/g, "");
@@ -158,6 +213,16 @@ export function ColaboradorFormFields({
       </label>
       <input type="hidden" name="role" value={defaults.role} />
       <label className={styles.field}>
+        <span className={styles.fieldLabel}>Email (login no portal)</span>
+        <input
+          type="email"
+          name="email"
+          placeholder="nome@dcit.com.br"
+          defaultValue={defaults.email ?? ""}
+          className={styles.fieldInput}
+        />
+      </label>
+      <label className={styles.field}>
         <span className={styles.fieldLabel}>Função</span>
         <select name="cargo" defaultValue={defaults.cargo ?? ""} className={styles.fieldSelect}>
           <option value="">—</option>
@@ -170,38 +235,50 @@ export function ColaboradorFormFields({
       </label>
       <label className={styles.field}>
         <span className={styles.fieldLabel}>Nível</span>
-        <select name="nivel" defaultValue={defaults.nivel ?? ""} className={styles.fieldSelect}>
-          <option value="">—</option>
-          {NIVEIS.map((value) => (
-            <option key={value} value={value}>
-              {NIVEL_LABELS[value]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className={styles.field}>
-        <span className={styles.fieldLabel}>Convenção coletiva</span>
         <select
-          name="convencaoId"
-          defaultValue={defaults.convencaoId ?? ""}
+          defaultValue={composeNivelValue(defaults.nivel, defaults.salarioMensal)}
+          onChange={handleNivelChange}
           className={styles.fieldSelect}
         >
           <option value="">—</option>
-          {convencoes.map((convencao) => (
-            <option key={convencao.id} value={convencao.id}>
-              {convencao.nome}
-            </option>
+          {(["junior", "pleno", "senior"] as const).map((nivel) => (
+            <optgroup key={nivel} label={SUB_NIVEL_NOME_BASE[nivel]}>
+              {NIVEL_DEGRAUS[nivel].map((_, index) => (
+                <option key={index} value={`${nivel}-${index}`}>
+                  {SUB_NIVEL_NOME_BASE[nivel]} {index + 1}
+                </option>
+              ))}
+            </optgroup>
           ))}
+          <option value="especialista">{SUB_NIVEL_NOME_BASE.especialista}</option>
         </select>
+        <input type="hidden" name="nivel" ref={nivelHiddenRef} defaultValue={defaults.nivel ?? ""} />
       </label>
+      {showConvencao ? (
+        <label className={styles.field}>
+          <span className={styles.fieldLabel}>Convenção coletiva</span>
+          <select
+            name="convencaoId"
+            defaultValue={defaults.convencaoId ?? ""}
+            className={styles.fieldSelect}
+          >
+            <option value="">—</option>
+            {convencoes.map((convencao) => (
+              <option key={convencao.id} value={convencao.id}>
+                {convencao.nome}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <label className={styles.field}>
         <span className={styles.fieldLabel}>Salário mensal</span>
         <input
           type="number"
           name="salarioMensal"
-          min="0"
-          step="0.01"
-          placeholder="R$"
+          ref={salarioRef}
+          readOnly
+          placeholder="Escolha o nível ao lado"
           defaultValue={defaults.salarioMensal ?? ""}
           className={styles.fieldInput}
         />

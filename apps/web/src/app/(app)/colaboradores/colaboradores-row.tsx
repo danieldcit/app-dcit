@@ -10,6 +10,7 @@ type Employee = {
   userId: string;
   name: string;
   role: "colaborador" | "gestor" | "rh";
+  email: string | null;
   cargo: string | null;
   team: string | null;
   nivel: string | null;
@@ -57,14 +58,16 @@ export function ColaboradoresRow({
           Salvar
         </button>
       </form>
-      <EditarColaboradorDialog employee={employee} convencoes={convencoes} />
-      <button
-        type="button"
-        className={styles.deleteButton}
-        onClick={() => confirmDeleteRef.current?.showModal()}
-      >
-        Excluir
-      </button>
+      <div className={styles.actions}>
+        <EditarColaboradorDialog employee={employee} convencoes={convencoes} />
+        <button
+          type="button"
+          className={styles.deleteButton}
+          onClick={() => confirmDeleteRef.current?.showModal()}
+        >
+          Excluir
+        </button>
+      </div>
       {state.error ? <span className={styles.error}>{state.error}</span> : null}
 
       <dialog ref={confirmDeleteRef} className={styles.dialog}>

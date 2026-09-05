@@ -24,7 +24,7 @@
 .item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
   padding: 12px 16px;
   border-radius: 8px;
@@ -32,6 +32,10 @@
 }
 
 .itemName {
+  flex: 0 0 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 600;
   color: var(--color-text);
 }
@@ -39,16 +43,25 @@
 .form {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 8px;
 }
 
 .timeInput {
+  width: 100px;
   padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid var(--color-background-selected);
   background: var(--color-background);
   color: var(--color-text);
   font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .saveButton {
@@ -73,8 +86,19 @@
 }
 
 .error {
+  flex-basis: 100%;
   font-size: 13px;
   color: var(--color-text);
+}
+
+.searchInput {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-background-selected);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 14px;
+  width: min(320px, 100%);
 }
 
 .headingRow {
@@ -108,7 +132,13 @@
   width: min(640px, calc(100vw - 48px));
   max-height: 85vh;
   overflow-y: auto;
-  background: var(--color-background);
+  /* --color-modal-background (globals.css) is solid — --color-background
+     and --color-background-element get overridden to translucent "glass
+     over photo" values by .main (app-shell.module.css), which a dialog
+     inherits since it stays in the DOM under .main even once promoted to
+     the browser's top layer. A translucent panel here let the page behind
+     bleed through the form, unreadable over the busy background photo. */
+  background: var(--color-modal-background);
   color: var(--color-text);
 }
 
@@ -172,6 +202,11 @@
   background: var(--color-background);
   color: var(--color-text);
   font-size: 14px;
+}
+
+.fieldInput:read-only {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .deleteButton {

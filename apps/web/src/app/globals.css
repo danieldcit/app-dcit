@@ -4,6 +4,10 @@
   --color-background-element: #f0f0f3;
   --color-background-selected: #e0e1e6;
   --color-text-secondary: #60646c;
+  /* Solid, never overridden by the "glass over photo" look .main applies to
+     --color-background-element (see app-shell.module.css) — dialogs need a
+     background that actually blocks the page behind them. */
+  --color-modal-background: #f0f0f3;
   --color-status-success: #1a7f37;
   --color-status-warning: #9a6700;
   --color-status-danger: #cf222e;
@@ -18,6 +22,7 @@
   --color-background-element: #212225;
   --color-background-selected: #2e3135;
   --color-text-secondary: #b0b4ba;
+  --color-modal-background: #212225;
   --color-status-success: #238636;
   --color-status-warning: #9e6a03;
   --color-status-danger: #da3633;

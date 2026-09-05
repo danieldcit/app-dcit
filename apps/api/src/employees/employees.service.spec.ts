@@ -2,6 +2,7 @@ process.env.DATABASE_URL = 'file:./test.db';
 
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import * as bcrypt from 'bcryptjs';
 import { EmployeesService } from './employees.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -301,6 +302,274 @@ describe('EmployeesService', () => {
       );
 
       await prisma.employee.deleteMany({ where: { cpf: '88888888888' } });
+    });
+  });
+
+  describe('email + password login', () => {
+    it('sets a bcrypt hash of the dev password when an employee is created with an email', async () => {
+      const created = await service.create({
+        name: 'Login Novo',
+        role: 'colaborador',
+        email: 'login.novo@dev.local',
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+
+      expect(created.email).toBe('login.novo@dev.local');
+      expect(created.passwordHash).not.toBeNull();
+      expect(bcrypt.compareSync('dev12345', created.passwordHash as string)).toBe(true);
+
+      await prisma.employee.delete({ where: { userId: created.userId } });
+    });
+
+    it('leaves passwordHash null when an employee is created without an email', async () => {
+      const created = await service.create({
+        name: 'Sem Login',
+        role: 'colaborador',
+        email: null,
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+
+      expect(created.email).toBeNull();
+      expect(created.passwordHash).toBeNull();
+
+      await prisma.employee.delete({ where: { userId: created.userId } });
+    });
+
+    it('sets the dev password hash when updatePersonalData adds an email to a passwordless employee', async () => {
+      const created = await service.create({
+        name: 'Ganha Email',
+        role: 'colaborador',
+        email: null,
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+      expect(created.passwordHash).toBeNull();
+
+      const updated = await service.updatePersonalData(created.userId, {
+        name: 'Ganha Email',
+        role: 'colaborador',
+        email: 'ganha.email@dev.local',
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+
+      expect(updated.email).toBe('ganha.email@dev.local');
+      expect(updated.passwordHash).not.toBeNull();
+      expect(bcrypt.compareSync('dev12345', updated.passwordHash as string)).toBe(true);
+
+      await prisma.employee.delete({ where: { userId: created.userId } });
+    });
+
+    it('does not overwrite an existing passwordHash when updatePersonalData resubmits the same email', async () => {
+      const created = await service.create({
+        name: 'Ja Tem Login',
+        role: 'colaborador',
+        email: 'ja.tem.login@dev.local',
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+      expect(created.passwordHash).not.toBeNull();
+
+      // Simulate the colaborador having set their own password (e.g. via
+      // "esqueci minha senha") — updatePersonalData must never clobber it.
+      const customHash = await bcrypt.hash('senha-propria-do-usuario', 10);
+      await prisma.employee.update({
+        where: { userId: created.userId },
+        data: { passwordHash: customHash },
+      });
+
+      const updated = await service.updatePersonalData(created.userId, {
+        name: 'Ja Tem Login Editado',
+        role: 'colaborador',
+        email: 'ja.tem.login@dev.local',
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+
+      expect(updated.passwordHash).toBe(customHash);
+
+      await prisma.employee.delete({ where: { userId: created.userId } });
+    });
+
+    it('clears passwordHash when updatePersonalData removes the email', async () => {
+      const created = await service.create({
+        name: 'Perde Login',
+        role: 'colaborador',
+        email: 'perde.login@dev.local',
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+      expect(created.passwordHash).not.toBeNull();
+
+      const updated = await service.updatePersonalData(created.userId, {
+        name: 'Perde Login',
+        role: 'colaborador',
+        email: null,
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+
+      expect(updated.email).toBeNull();
+      expect(updated.passwordHash).toBeNull();
+
+      await prisma.employee.delete({ where: { userId: created.userId } });
+    });
+
+    it('throws ConflictException with an email-specific message when a second employee reuses an existing email', async () => {
+      const first = await service.create({
+        name: 'Email Original',
+        role: 'colaborador',
+        email: 'duplicado@dev.local',
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+
+      await expect(
+        service.create({
+          name: 'Email Duplicado',
+          role: 'colaborador',
+          email: 'duplicado@dev.local',
+          hireDate: '2026-01-02',
+          cpf: null,
+          rg: null,
+          dataNascimento: null,
+          estadoCivil: null,
+          enderecoRua: null,
+          enderecoNumero: null,
+          enderecoBairro: null,
+          enderecoCidade: null,
+          enderecoEstado: null,
+          enderecoCep: null,
+        }),
+      ).rejects.toThrow('Já existe um colaborador cadastrado com esse email.');
+
+      await prisma.employee.delete({ where: { userId: first.userId } });
+    });
+
+    it('throws ConflictException pointing to the lixeira when the conflicting email belongs to a soft-deleted employee', async () => {
+      const trashed = await service.create({
+        name: 'Email Vai Para Lixeira',
+        role: 'colaborador',
+        email: 'lixeira.email@dev.local',
+        hireDate: '2026-01-01',
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      });
+      await service.softDelete(trashed.userId);
+
+      await expect(
+        service.create({
+          name: 'Reaproveitando Email',
+          role: 'colaborador',
+          email: 'lixeira.email@dev.local',
+          hireDate: '2026-01-02',
+          cpf: null,
+          rg: null,
+          dataNascimento: null,
+          estadoCivil: null,
+          enderecoRua: null,
+          enderecoNumero: null,
+          enderecoBairro: null,
+          enderecoCidade: null,
+          enderecoEstado: null,
+          enderecoCep: null,
+        }),
+      ).rejects.toThrow(
+        'Já existe um colaborador com esse email na lixeira — restaure-o ou exclua-o permanentemente antes de reutilizar o email.',
+      );
+
+      await prisma.employee.deleteMany({ where: { email: 'lixeira.email@dev.local' } });
     });
   });
 
