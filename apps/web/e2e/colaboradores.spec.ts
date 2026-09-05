@@ -144,6 +144,7 @@ test("opens the dialog and creates a new colaborador with the API", async ({
     .toEqual({
       name: "Fabio Novo",
       role: "colaborador",
+      email: null,
       cargo: null,
       nivel: null,
       convencaoId: null,
@@ -163,7 +164,7 @@ test("opens the dialog and creates a new colaborador with the API", async ({
     });
 });
 
-test("selecting a convenção and filling a salário includes both in the create payload", async ({
+test("Convenção coletiva is not offered when creating a colaborador (only when editing)", async ({
   page,
   context,
   request,
@@ -178,24 +179,62 @@ test("selecting a convenção and filling a salário includes both in the create
   await page.getByRole("button", { name: "+ Novo colaborador" }).click();
 
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByLabel("Nome").fill("Helena Convenio");
-  await page.getByLabel("Data de admissão").fill("2026-04-01");
-  await page.getByLabel("Convenção coletiva").selectOption("conv-1");
-  await page.getByLabel("Salário mensal").fill("5000.50");
-  await page.getByRole("button", { name: "Cadastrar" }).click();
+  await expect(page.getByLabel("Convenção coletiva")).toHaveCount(0);
+});
+
+test("selecting a convenção and a nível in the edit dialog includes the convenção and the nível-driven salário in the payload", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "rh-1", role: "rh", name: "Carla RH" });
+  await mockApi(request, {
+    employees: [
+      {
+        userId: "colaborador-1",
+        name: "Helena Convenio",
+        role: "colaborador",
+        hireDate: "2026-04-01T00:00:00.000Z",
+        expectedStartTime: null,
+        cpf: null,
+        rg: null,
+        dataNascimento: null,
+        estadoCivil: null,
+        enderecoRua: null,
+        enderecoNumero: null,
+        enderecoBairro: null,
+        enderecoCidade: null,
+        enderecoEstado: null,
+        enderecoCep: null,
+      },
+    ],
+    convencoes: [{ id: "conv-1", nome: "Convenção Metalúrgicos" }],
+  });
+
+  await page.goto("/colaboradores");
+  await page.getByRole("button", { name: "Editar" }).click();
+
+  await page.getByRole("dialog").getByLabel("Convenção coletiva").selectOption("conv-1");
+  // Pleno 3 -> the fixed ladder's 3rd degrau (see CAREER_LADDER.pleno.degraus in
+  // packages/shared-types/src/career-ladder.ts): 4000, 4700, 5500, 6200.
+  await page.getByRole("dialog").getByLabel("Nível").selectOption("pleno-2");
+  await page.getByRole("dialog").getByRole("button", { name: "Salvar" }).click();
 
   await expect
     .poll(async () => {
       const recorded = await getRecordedRequests(request);
-      return recorded.find((r) => r.method === "POST" && r.path === "/employees")?.body;
+      return recorded.find(
+        (r) => r.method === "PATCH" && r.path === "/employees/colaborador-1/personal-data"
+      )?.body;
     })
     .toEqual({
       name: "Helena Convenio",
       role: "colaborador",
+      email: null,
       cargo: null,
-      nivel: null,
+      nivel: "pleno",
       convencaoId: "conv-1",
-      salarioMensal: "5000.50",
+      salarioMensal: "5500",
       hireDate: "2026-04-01",
       cpf: null,
       rg: null,
@@ -468,6 +507,7 @@ test("opens the edit dialog prefilled and saves personal data", async ({
     .toEqual({
       name: "Ana Editada",
       role: "colaborador",
+      email: null,
       cargo: null,
       nivel: null,
       convencaoId: null,
