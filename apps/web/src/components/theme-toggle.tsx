@@ -9,21 +9,23 @@ type Theme = "light" | "dark";
 const STORAGE_KEY = "theme";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-    return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-  });
+  // Always starts "light", matching the server-rendered markup (app/layout.tsx
+  // hardcodes data-theme="light" pre-hydration) — reading the DOM here instead
+  // would pick up whatever the inline bootstrap script already applied (e.g.
+  // "dark" from localStorage), producing a client-vs-server aria-pressed
+  // mismatch on this very first render. The layout effect below corrects it
+  // before paint.
+  const [theme, setTheme] = useState<Theme>("light");
 
-  // Re-apply the persisted theme after React's dev-mode Strict Mode remount,
-  // which clears attributes the inline bootstrap script (app/layout.tsx) set
-  // on <html> before hydration. No-op in production.
+  // Sync from the actual applied/persisted theme after hydration, and
+  // re-apply it after React's dev-mode Strict Mode remount (which clears
+  // attributes the inline bootstrap script set on <html> before hydration).
+  // Runs before paint, so there's no visible flash.
   useLayoutEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "light" || stored === "dark") {
-      document.documentElement.dataset.theme = stored;
-    }
+    const current = stored === "light" || stored === "dark" ? stored : document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = current;
+    setTheme(current);
   }, []);
 
   function handleToggleTheme() {

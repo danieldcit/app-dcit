@@ -8,11 +8,18 @@
   flex-shrink: 0;
   height: 100vh;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--color-background-element);
   padding: 24px 16px;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  transition: width 0.15s ease;
+}
+
+.sidebarCollapsed {
+  width: 72px;
+  padding: 24px 12px;
 }
 
 .brand {
@@ -21,6 +28,10 @@
   gap: 12px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--color-background-selected);
+}
+
+.sidebarCollapsed .brand {
+  justify-content: center;
 }
 
 .brandIcon {
@@ -60,11 +71,34 @@
   color: var(--color-text-secondary);
 }
 
-.brandChevron {
+.brandChevronButton {
+  appearance: none;
+  border: none;
+  background: none;
   flex-shrink: 0;
+  padding: 6px;
+  margin: -6px;
+  border-radius: 8px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brandChevronButton:hover {
+  background: var(--color-background-selected);
+  color: var(--color-text);
+}
+
+.brandChevron {
   width: 16px;
   height: 16px;
-  color: var(--color-text-secondary);
+  transition: transform 0.15s ease;
+}
+
+.brandChevronCollapsed {
+  transform: rotate(180deg);
 }
 
 .navSections {
@@ -100,9 +134,12 @@
 
 .navGroupLink {
   flex: 1;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 8px 12px;
   color: inherit;
+  min-width: 0;
 }
 
 .navGroupToggle {
@@ -137,10 +174,36 @@
 }
 
 .navLink {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 8px 12px;
   border-radius: 8px;
   color: var(--color-text-secondary);
+  min-width: 0;
+}
+
+.navItemIcon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.navLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebarCollapsed .navLabel {
+  display: none;
+}
+
+.sidebarCollapsed .navLink,
+.sidebarCollapsed .navGroupLink {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .navLink:hover {

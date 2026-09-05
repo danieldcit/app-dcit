@@ -38,12 +38,51 @@ function groupByColaborador(holerites: Holerite[]): HoleriteGroup[] {
   return [...groups.values()].sort((a, b) => a.userName.localeCompare(b.userName, "pt-BR"));
 }
 
+function formatBRL(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+async function MinhasHoleritesView() {
+  const holerites = await apiFetchJson<Holerite[]>("/documentos/holerites");
+
+  if (holerites.length === 0) {
+    return (
+      <EmptyState
+        title="Holerites"
+        description="Seus holerites vão aparecer aqui assim que o RH lançar o primeiro."
+      />
+    );
+  }
+
+  return (
+    <div className={styles.page}>
+      <h1 className={styles.heading}>Holerites</h1>
+      <ul className={styles.list}>
+        {holerites.map((holerite) => {
+          const liquido = holerite.gross - holerite.inss - holerite.irrf - holerite.benefits;
+          return (
+            <li key={holerite.id} className={styles.item}>
+              <span className={styles.itemName}>{holerite.label}</span>
+              <span className={styles.itemDetail}>
+                Bruto: {formatBRL(holerite.gross)} · INSS: {formatBRL(holerite.inss)} · IRRF:{" "}
+                {formatBRL(holerite.irrf)} · Descontos de benefícios: {formatBRL(holerite.benefits)} ·
+                Líquido: {formatBRL(liquido)}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default async function HoleritesPage() {
   const session = await getSession();
-  if (!session || session.role === "colaborador") {
-    return (
-      <EmptyState title="Sem permissão" description="Esta página é restrita a gestores e RH." />
-    );
+  if (!session) {
+    return <EmptyState title="Sem permissão" description="Faça login para continuar." />;
+  }
+  if (session.role === "colaborador") {
+    return <MinhasHoleritesView />;
   }
 
   const [holerites, employees] = await Promise.all([

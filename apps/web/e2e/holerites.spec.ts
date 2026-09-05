@@ -2,14 +2,35 @@ import { test, expect } from "@playwright/test";
 
 import { addSessionCookie, getRecordedRequests, mockApi } from "./test-session";
 
-test("colaborador sees a permission message instead of the holerites cadastro", async ({
-  page,
-  context,
-}) => {
+test("colaborador sees their own holerites, read-only", async ({ page, context, request }) => {
   await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, {
+    myHolerites: [
+      { id: "hol-1", label: "Agosto 2026", gross: 6200, inss: 682, irrf: 410, benefits: 380 },
+    ],
+  });
+
   await page.goto("/holerites");
 
-  await expect(page.getByRole("heading", { name: "Sem permissão" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Holerites" })).toBeVisible();
+  await expect(page.getByText("Agosto 2026")).toBeVisible();
+  await expect(page.getByText(/Bruto: R\$\s?6\.200,00/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Excluir" })).toHaveCount(0);
+});
+
+test("shows an empty state when colaborador has no holerites yet", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myHolerites: [] });
+
+  await page.goto("/holerites");
+
+  await expect(
+    page.getByText("Seus holerites vão aparecer aqui assim que o RH lançar o primeiro."),
+  ).toBeVisible();
 });
 
 test("gestor sees the holerites list", async ({ page, context, request }) => {

@@ -116,8 +116,8 @@ test("colaborador sees a curated, grouped sidebar instead of the gestor/rh menu"
   await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
   await page.goto("/");
 
-  // "Ponto" starts collapsed — its children only show once expanded.
-  await expect(page.getByRole("link", { name: "Ponto", exact: true })).toBeVisible();
+  // "Colaborador" starts collapsed — its children only show once expanded.
+  await expect(page.getByRole("link", { name: "Colaborador", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Banco de Horas" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Férias" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Documentos" })).toBeVisible();
@@ -125,19 +125,20 @@ test("colaborador sees a curated, grouped sidebar instead of the gestor/rh menu"
   await expect(page.getByRole("link", { name: "Notificações" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Histórico de Pontos" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Folha de Ponto" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Holerites" })).toHaveCount(0);
 
   await expect(page.getByRole("link", { name: "Colaboradores" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Plantão" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Aprovações" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Convenções" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Holerites" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Expandir Ponto" }).click();
+  await page.getByRole("button", { name: "Expandir Colaborador" }).click();
+  await expect(page.getByRole("link", { name: "Holerites" })).toBeVisible();
   await page.getByRole("link", { name: "Histórico de Pontos" }).click();
   await expect(page).toHaveURL(/\/historico$/);
 });
 
-test("expands and collapses the Ponto group on click, without navigating", async ({
+test("expands and collapses the Colaborador group on click, without navigating", async ({
   page,
   context,
 }) => {
@@ -146,11 +147,11 @@ test("expands and collapses the Ponto group on click, without navigating", async
 
   await expect(page.getByRole("link", { name: "Histórico de Pontos" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Expandir Ponto" }).click();
+  await page.getByRole("button", { name: "Expandir Colaborador" }).click();
   await expect(page.getByRole("link", { name: "Histórico de Pontos" })).toBeVisible();
   await expect(page).toHaveURL(/\/$/);
 
-  await page.getByRole("button", { name: "Recolher Ponto" }).click();
+  await page.getByRole("button", { name: "Recolher Colaborador" }).click();
   await expect(page.getByRole("link", { name: "Histórico de Pontos" })).toHaveCount(0);
 });
 
@@ -197,4 +198,33 @@ test("the user menu shows the authenticated user's name and role, and can log ou
 
   await page.getByRole("button", { name: "Sair" }).click();
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("collapses the sidebar to icons-only and remembers the preference on reload", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "gestor-1", role: "gestor", name: "Bruno Gestor" });
+  await mockApi(request);
+  await page.goto("/");
+
+  await expect(page.getByRole("link", { name: "Documentos" })).toBeVisible();
+  await expect(page.getByText("Sistema de Gestão de Pessoas")).toBeVisible();
+
+  await page.getByRole("button", { name: "Recolher menu" }).click();
+
+  // The link still resolves by its accessible name/title (icon-only, no
+  // visible label), and still navigates like a normal link.
+  await expect(page.getByText("Sistema de Gestão de Pessoas")).toHaveCount(0);
+  await page.getByRole("link", { name: "Documentos" }).click();
+  await expect(page).toHaveURL(/\/documentos$/);
+
+  // Preference survives a reload.
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Expandir menu" })).toBeVisible();
+  await expect(page.getByText("Sistema de Gestão de Pessoas")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Expandir menu" }).click();
+  await expect(page.getByText("Sistema de Gestão de Pessoas")).toBeVisible();
 });

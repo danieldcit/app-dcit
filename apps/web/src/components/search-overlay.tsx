@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { NAV_SECTIONS, type NavRole } from "@/lib/nav-sections";
@@ -49,6 +50,17 @@ export function SearchOverlay({ role }: { role: NavRole }) {
     router.push(href);
   }
 
+  // <dialog>'s own backdrop swallows clicks by default — a click "outside"
+  // still lands on the dialog element itself (the backdrop is part of it),
+  // just outside its content box. Only close when the click target is the
+  // dialog element, never a descendant, so clicking the input/results
+  // doesn't dismiss it.
+  function onDialogClick(event: MouseEvent<HTMLDialogElement>) {
+    if (event.target === dialogRef.current) {
+      dialogRef.current?.close();
+    }
+  }
+
   return (
     <>
       <button type="button" className={styles.searchButton} onClick={open}>
@@ -60,7 +72,12 @@ export function SearchOverlay({ role }: { role: NavRole }) {
         <kbd className={styles.searchShortcut}>Ctrl K</kbd>
       </button>
 
-      <dialog ref={dialogRef} className={styles.searchDialog} onClose={() => setQuery("")}>
+      <dialog
+        ref={dialogRef}
+        className={styles.searchDialog}
+        onClose={() => setQuery("")}
+        onClick={onDialogClick}
+      >
         <input
           ref={inputRef}
           value={query}

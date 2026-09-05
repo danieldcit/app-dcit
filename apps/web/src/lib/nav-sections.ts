@@ -64,10 +64,14 @@ export function isSidebarGroup(entry: SidebarEntry): entry is SidebarGroup {
 export const COLABORADOR_SIDEBAR: SidebarEntry[] = [
   {
     href: "/",
-    label: "Ponto",
+    // "Colaborador" here only — the shared NAV_SECTIONS label ("Ponto", used
+    // by search and by this same group nested under gestor/rh's
+    // Colaboradores) is untouched, by explicit request.
+    label: "Colaborador",
     children: [
       { href: "/historico", label: "Histórico de Pontos" },
       { href: "/folha", label: "Folha de Ponto" },
+      { href: "/holerites", label: "Holerites" },
     ],
   },
   { href: "/banco-de-horas", label: "Banco de Horas" },

@@ -1,14 +1,13 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
 
 import type { Session } from "@/lib/session";
 import { logout } from "@/lib/session";
 
-import { NavLinks } from "./nav-links";
 import { NotificationBell } from "./notification-bell";
 import { NotificationProvider } from "./notification-context";
 import type { NotificationRecord } from "./notification-list";
 import { SearchOverlay } from "./search-overlay";
+import { SidebarShell } from "./sidebar-shell";
 import { ThemeToggle } from "./theme-toggle";
 import styles from "./app-shell.module.css";
 
@@ -30,34 +29,7 @@ export function AppShell({
   return (
     <NotificationProvider notifications={notifications}>
       <div className={styles.shell}>
-        <aside className={styles.sidebar}>
-          <div className={styles.brand}>
-            <div className={styles.brandIcon}>
-              <Image
-                src="/sgp-icon.png"
-                alt="SGP"
-                width={1265}
-                height={1243}
-                className={styles.brandIconImage}
-                priority
-              />
-            </div>
-            <div className={styles.brandText}>
-              <span className={styles.brandTitle}>SGP</span>
-              <span className={styles.brandSubtitle}>Sistema de Gestão de Pessoas</span>
-            </div>
-            <svg className={styles.brandChevron} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M15 18l-6-6 6-6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <NavLinks role={user.role} />
-        </aside>
+        <SidebarShell role={user.role} />
         <div className={styles.main}>
           <header className={styles.topbar}>
             <SearchOverlay role={user.role} />

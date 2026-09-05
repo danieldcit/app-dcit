@@ -17,6 +17,7 @@ import {
   type SidebarGroup,
   type SidebarLink,
 } from "@/lib/nav-sections";
+import { NavIcon } from "./nav-icon";
 
 import styles from "./app-shell.module.css";
 
@@ -40,10 +41,12 @@ function NavLinkItem({
   link,
   pathname,
   searchParams,
+  collapsed,
 }: {
   link: SidebarLink;
   pathname: string;
   searchParams: URLSearchParams;
+  collapsed?: boolean;
 }) {
   const active = isLinkActive(link, pathname, searchParams);
   return (
@@ -52,8 +55,10 @@ function NavLinkItem({
         href={link.href}
         className={active ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
         aria-current={active ? "page" : undefined}
+        title={collapsed ? link.label : undefined}
       >
-        {link.label}
+        <NavIcon href={link.href} className={styles.navItemIcon} />
+        <span className={styles.navLabel}>{link.label}</span>
       </Link>
     </li>
   );
@@ -63,10 +68,12 @@ function NavGroupItem({
   group,
   pathname,
   searchParams,
+  collapsed,
 }: {
   group: SidebarGroup;
   pathname: string;
   searchParams: URLSearchParams;
+  collapsed?: boolean;
 }) {
   const active = isLinkActive(group, pathname, searchParams);
   // Always starts collapsed ("normal") — expanding is a deliberate click,
@@ -75,6 +82,10 @@ function NavGroupItem({
   // collapsed, since "/" (the group's target) is where a colaborador lands
   // right after login.
   const [open, setOpen] = useState(false);
+  // A collapsed sidebar has no room for children anyway — treat the group
+  // like a plain link (icon + tooltip, straight to its own href) instead of
+  // showing a chevron that can never reveal anything.
+  const showChildren = open && !collapsed;
 
   return (
     <div className={styles.navGroup}>
@@ -83,33 +94,37 @@ function NavGroupItem({
           href={group.href}
           className={styles.navGroupLink}
           aria-current={active ? "page" : undefined}
+          title={collapsed ? group.label : undefined}
         >
-          {group.label}
+          <NavIcon href={group.href} className={styles.navItemIcon} />
+          <span className={styles.navLabel}>{group.label}</span>
         </Link>
-        <button
-          type="button"
-          className={styles.navGroupToggle}
-          onClick={() => setOpen((current) => !current)}
-          aria-expanded={open}
-          aria-label={open ? `Recolher ${group.label}` : `Expandir ${group.label}`}
-        >
-          <svg
-            className={open ? `${styles.navChevron} ${styles.navChevronOpen}` : styles.navChevron}
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
+        {collapsed ? null : (
+          <button
+            type="button"
+            className={styles.navGroupToggle}
+            onClick={() => setOpen((current) => !current)}
+            aria-expanded={open}
+            aria-label={open ? `Recolher ${group.label}` : `Expandir ${group.label}`}
           >
-            <path
-              d="M6 9l6 6 6-6"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            <svg
+              className={open ? `${styles.navChevron} ${styles.navChevronOpen}` : styles.navChevron}
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M6 9l6 6 6-6"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        )}
       </div>
-      {open ? (
+      {showChildren ? (
         <ul className={styles.navChildren}>
           {group.children.map((child) => (
             <NavLinkItem key={child.href} link={child} pathname={pathname} searchParams={searchParams} />
@@ -120,7 +135,7 @@ function NavGroupItem({
   );
 }
 
-export function NavLinks({ role }: { role: NavRole }) {
+export function NavLinks({ role, collapsed }: { role: NavRole; collapsed?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -129,10 +144,16 @@ export function NavLinks({ role }: { role: NavRole }) {
       <nav className={styles.navSections}>
         {COLABORADOR_SIDEBAR.map((entry) =>
           isSidebarGroup(entry) ? (
-            <NavGroupItem key={entry.href} group={entry} pathname={pathname} searchParams={searchParams} />
+            <NavGroupItem
+              key={entry.href}
+              group={entry}
+              pathname={pathname}
+              searchParams={searchParams}
+              collapsed={collapsed}
+            />
           ) : (
             <ul className={styles.nav} key={entry.href}>
-              <NavLinkItem link={entry} pathname={pathname} searchParams={searchParams} />
+              <NavLinkItem link={entry} pathname={pathname} searchParams={searchParams} collapsed={collapsed} />
             </ul>
           ),
         )}
@@ -150,14 +171,19 @@ export function NavLinks({ role }: { role: NavRole }) {
     ).sort((a, b) => GESTOR_SIDEBAR_ORDER.indexOf(a.href) - GESTOR_SIDEBAR_ORDER.indexOf(b.href));
     return (
       <nav className={styles.navSections}>
-        <NavGroupItem group={COLABORADORES_GROUP} pathname={pathname} searchParams={searchParams} />
+        <NavGroupItem
+          group={COLABORADORES_GROUP}
+          pathname={pathname}
+          searchParams={searchParams}
+          collapsed={collapsed}
+        />
         <ul className={styles.nav}>
           {flatEntries.map((link) => (
-            <NavLinkItem key={link.href} link={link} pathname={pathname} searchParams={searchParams} />
+            <NavLinkItem key={link.href} link={link} pathname={pathname} searchParams={searchParams} collapsed={collapsed} />
           ))}
         </ul>
         <ul className={styles.nav}>
-          <NavLinkItem link={GESTOR_CAREER_LINK} pathname={pathname} searchParams={searchParams} />
+          <NavLinkItem link={GESTOR_CAREER_LINK} pathname={pathname} searchParams={searchParams} collapsed={collapsed} />
         </ul>
       </nav>
     );
@@ -179,10 +205,16 @@ export function NavLinks({ role }: { role: NavRole }) {
     <nav>
       {rhEntries.map((entry) =>
         isSidebarGroup(entry) ? (
-          <NavGroupItem key={entry.href} group={entry} pathname={pathname} searchParams={searchParams} />
+          <NavGroupItem
+            key={entry.href}
+            group={entry}
+            pathname={pathname}
+            searchParams={searchParams}
+            collapsed={collapsed}
+          />
         ) : (
           <ul className={styles.nav} key={entry.href}>
-            <NavLinkItem link={entry} pathname={pathname} searchParams={searchParams} />
+            <NavLinkItem link={entry} pathname={pathname} searchParams={searchParams} collapsed={collapsed} />
           </ul>
         ),
       )}
