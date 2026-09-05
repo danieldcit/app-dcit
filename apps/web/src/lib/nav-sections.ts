@@ -19,7 +19,7 @@ export const NAV_SECTIONS: NavSection[] = [
   { href: "/mural", label: "Mural", roles: ["gestor", "rh", "colaborador"] },
   { href: "/beneficios", label: "Benefícios", roles: ["gestor", "rh"] },
   { href: "/pagamentos", label: "Pagamentos", roles: ["rh"] },
-  { href: "/onboarding", label: "Onboarding", roles: ["gestor", "rh"] },
+  { href: "/onboarding", label: "Onboarding", roles: ["gestor", "rh", "colaborador"] },
   { href: "/horas", label: "Horas", roles: ["gestor"] },
   { href: "/banco-de-horas", label: "Banco de Horas", roles: ["gestor", "rh", "colaborador"] },
   { href: "/ferias", label: "Férias", roles: ["colaborador"] },
@@ -78,6 +78,7 @@ export const COLABORADOR_SIDEBAR: SidebarEntry[] = [
   { href: "/ferias", label: "Férias" },
   { href: "/documentos", label: "Documentos" },
   { href: "/mural", label: "Mural" },
+  { href: "/onboarding", label: "Onboarding" },
   { href: "/notificacoes", label: "Notificações" },
 ];
 

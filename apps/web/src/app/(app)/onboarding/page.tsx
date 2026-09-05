@@ -2,6 +2,7 @@ import { EmptyState } from "@/components/empty-state";
 import { apiFetchJson } from "@/lib/api";
 import { getSession } from "@/lib/session";
 
+import { ColaboradorOnboarding } from "./colaborador-onboarding";
 import { OnboardingRow } from "./onboarding-row";
 import styles from "./onboarding.module.css";
 
@@ -9,6 +10,7 @@ type Task = {
   id: string;
   title: string;
   description: string;
+  requiresUpload: boolean;
 };
 
 type TeamProgress = {
@@ -20,13 +22,31 @@ type TeamProgress = {
   completedTaskIds: string[];
 };
 
+type AdmissionDocumentRecord = {
+  id: string;
+  kind: string | null;
+  title: string;
+  status: "enviado" | "em_analise" | "aprovado" | "recusado";
+  reviewNote: string | null;
+  submittedAt: string;
+};
+
 export default async function OnboardingPage() {
   const session = await getSession();
-  if (!session || session.role === "colaborador") {
+  if (!session) {
+    return <EmptyState title="Sem permissão" description="Faça login para continuar." />;
+  }
+
+  if (session.role === "colaborador") {
+    const [{ tasks, completedTaskIds }, admissionDocuments] = await Promise.all([
+      apiFetchJson<{ tasks: Task[]; completedTaskIds: string[] }>("/onboarding/tarefas"),
+      apiFetchJson<AdmissionDocumentRecord[]>("/documentos/admissionais"),
+    ]);
     return (
-      <EmptyState
-        title="Sem permissão"
-        description="Esta página é restrita a gestores e RH."
+      <ColaboradorOnboarding
+        tasks={tasks}
+        completedTaskIds={completedTaskIds}
+        admissionDocuments={admissionDocuments}
       />
     );
   }

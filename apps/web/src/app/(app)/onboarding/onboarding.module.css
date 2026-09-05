@@ -100,7 +100,7 @@
   border-radius: 12px;
   padding: 24px;
   width: min(480px, calc(100vw - 48px));
-  background: var(--color-background);
+  background: var(--color-modal-background);
   color: var(--color-text);
 }
 
