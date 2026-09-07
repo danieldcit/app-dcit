@@ -4,9 +4,16 @@
   justify-content: center;
   min-height: 100vh;
   padding: 48px 24px;
-  background-image: url("/login-background.png?v=3");
   background-size: cover;
   background-position: center;
+}
+
+[data-theme="dark"] .container {
+  background-image: url("/login-background.png?v=3");
+}
+
+[data-theme="light"] .container {
+  background-image: url("/login-background-light.png?v=1");
 }
 
 .card {
@@ -18,31 +25,62 @@
   max-width: 420px;
   padding: 40px 32px;
   border-radius: 16px;
-  background: rgba(10, 14, 22, 0.72);
   backdrop-filter: blur(6px);
+}
+
+[data-theme="dark"] .card {
+  background: rgba(10, 14, 22, 0.72);
+}
+
+[data-theme="light"] .card {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(10, 14, 22, 0.08);
 }
 
 .title {
   font-size: 24px;
   font-weight: 600;
+}
+
+[data-theme="dark"] .title {
   color: #ffffff;
+}
+
+[data-theme="light"] .title {
+  color: #14161a;
 }
 
 .description {
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.8);
   max-width: 420px;
   margin-bottom: 16px;
 }
 
+[data-theme="dark"] .description {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .description {
+  color: rgba(20, 22, 26, 0.75);
+}
+
 .error {
   font-size: 14px;
-  color: #ffb4b4;
-  background: rgba(180, 40, 40, 0.25);
-  border: 1px solid rgba(255, 140, 140, 0.4);
   border-radius: 8px;
   padding: 10px 14px;
   margin-bottom: 8px;
+}
+
+[data-theme="dark"] .error {
+  color: #ffb4b4;
+  background: rgba(180, 40, 40, 0.25);
+  border: 1px solid rgba(255, 140, 140, 0.4);
+}
+
+[data-theme="light"] .error {
+  color: #9a1a1a;
+  background: rgba(207, 34, 46, 0.1);
+  border: 1px solid rgba(207, 34, 46, 0.3);
 }
 
 .button {
@@ -52,9 +90,17 @@
   padding: 12px 24px;
   font-size: 16px;
   font-weight: 600;
+  cursor: pointer;
+}
+
+[data-theme="dark"] .button {
   color: #0a0e16;
   background: #ffffff;
-  cursor: pointer;
+}
+
+[data-theme="light"] .button {
+  color: #ffffff;
+  background: #14161a;
 }
 
 .button:hover {
@@ -71,34 +117,68 @@
 .input {
   padding: 10px 14px;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
   font-size: 15px;
 }
 
-.input::placeholder {
+[data-theme="dark"] .input {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+[data-theme="light"] .input {
+  border: 1px solid rgba(10, 14, 22, 0.15);
+  background: rgba(10, 14, 22, 0.04);
+  color: #14161a;
+}
+
+[data-theme="dark"] .input::placeholder {
   color: rgba(255, 255, 255, 0.5);
 }
 
-.input:focus {
+[data-theme="light"] .input::placeholder {
+  color: rgba(20, 22, 26, 0.45);
+}
+
+[data-theme="dark"] .input:focus {
   outline: none;
   border-color: rgba(255, 255, 255, 0.5);
 }
 
+[data-theme="light"] .input:focus {
+  outline: none;
+  border-color: rgba(10, 14, 22, 0.4);
+}
+
 .link {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
   text-decoration: underline;
   margin-top: 4px;
 }
 
+[data-theme="dark"] .link {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .link {
+  color: rgba(20, 22, 26, 0.65);
+}
+
 .devCode {
   font-size: 14px;
-  color: #ffe9a8;
-  background: rgba(180, 140, 40, 0.2);
-  border: 1px solid rgba(255, 210, 120, 0.4);
   border-radius: 8px;
   padding: 10px 14px;
   margin-bottom: 8px;
+}
+
+[data-theme="dark"] .devCode {
+  color: #ffe9a8;
+  background: rgba(180, 140, 40, 0.2);
+  border: 1px solid rgba(255, 210, 120, 0.4);
+}
+
+[data-theme="light"] .devCode {
+  color: #7a5900;
+  background: rgba(180, 140, 40, 0.12);
+  border: 1px solid rgba(180, 140, 40, 0.35);
 }
