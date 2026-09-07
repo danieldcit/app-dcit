@@ -117,3 +117,31 @@ export async function submitCertification(
     return null;
   }
 }
+
+export type SignedContractRecord = { submittedAt: string | null };
+
+export async function fetchSignedContract(token: string): Promise<SignedContractRecord | null> {
+  try {
+    const response = await authedFetch(token, "/documentos/contrato");
+    if (!response.ok) return null;
+    return (await response.json()) as SignedContractRecord;
+  } catch {
+    return null;
+  }
+}
+
+export async function submitSignedContract(
+  token: string,
+  fileDataUrl: string,
+): Promise<{ submittedAt: string } | null> {
+  try {
+    const response = await authedFetch(token, "/documentos/contrato", {
+      method: "POST",
+      body: JSON.stringify({ fileDataUrl }),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as { submittedAt: string };
+  } catch {
+    return null;
+  }
+}
