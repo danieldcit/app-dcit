@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
+import { grantOnboardingFullAccess } from "./actions";
 import styles from "./onboarding.module.css";
 
 type Task = {
@@ -17,14 +18,25 @@ type TeamProgress = {
   totalCount: number;
   tasks: Task[];
   completedTaskIds: string[];
+  fullAccessGrantedAt: string | null;
 };
 
 export function OnboardingRow({ entry }: { entry: TeamProgress }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [granting, setGranting] = useState(false);
   const percent =
     entry.totalCount === 0 ? 0 : Math.round((entry.completedCount / entry.totalCount) * 100);
   const complete = entry.totalCount > 0 && entry.completedCount === entry.totalCount;
   const completedSet = new Set(entry.completedTaskIds);
+
+  async function handleGrantFullAccess() {
+    setGranting(true);
+    try {
+      await grantOnboardingFullAccess(entry.userId);
+    } finally {
+      setGranting(false);
+    }
+  }
 
   return (
     <>
@@ -67,6 +79,14 @@ export function OnboardingRow({ entry }: { entry: TeamProgress }) {
             );
           })}
         </ul>
+        <button
+          type="button"
+          className={styles.grantAccessButton}
+          disabled={!complete || granting || Boolean(entry.fullAccessGrantedAt)}
+          onClick={handleGrantFullAccess}
+        >
+          {entry.fullAccessGrantedAt ? "Acesso liberado" : "Liberar acesso total ao SGP Portal"}
+        </button>
         <div className={styles.dialogActions}>
           <button
             type="button"

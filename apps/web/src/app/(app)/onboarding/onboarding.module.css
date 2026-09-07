@@ -105,13 +105,13 @@
 }
 
 .statusComplete {
-  color: var(--color-background);
-  background: var(--color-text);
+  color: #ffffff;
+  background: var(--color-status-success);
 }
 
 .statusPending {
-  color: var(--color-text-secondary);
-  background: var(--color-background-selected);
+  color: #ffffff;
+  background: var(--color-status-warning);
 }
 
 .videoSection {
@@ -168,6 +168,36 @@
 
 .teamToggleButton:hover {
   opacity: 0.85;
+}
+
+.accessList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 16px;
+  list-style: none;
+}
+
+.accessItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-background-selected);
+}
+
+.accessItemLabel {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.accessToggleButton {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
 }
 
 .videoWrapper {
@@ -253,11 +283,35 @@
 }
 
 .taskDone {
-  color: var(--color-background);
-  background: var(--color-text);
+  color: #ffffff;
+  background: var(--color-status-success);
 }
 
 .taskPending {
+  color: #ffffff;
+  background: var(--color-status-warning);
+}
+
+.grantAccessButton {
+  appearance: none;
+  border: none;
+  border-radius: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #ffffff;
+  background: var(--color-status-success);
+}
+
+.grantAccessButton:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.grantAccessButton:disabled {
+  cursor: default;
   color: var(--color-text-secondary);
   background: var(--color-background-selected);
 }

@@ -4,8 +4,10 @@ import { useState } from "react";
 
 import { ADMISSION_DOCUMENT_KINDS, ADMISSION_DOCUMENT_KIND_LABELS } from "@ponto-dcit/shared-types";
 
+import { AccessChecklistSection } from "./access-checklist-section";
 import { AdmissionDocumentBox } from "../documentos/admission-document-box";
-import { toggleOnboardingTask } from "./actions";
+import { ContractBox } from "../documentos/contract-box";
+import { toggleOnboardingAccessItem, toggleOnboardingTask } from "./actions";
 import styles from "./onboarding.module.css";
 import { TeamSection } from "./team-section";
 import { WelcomeVideoPlayer } from "./welcome-video-player";
@@ -17,6 +19,8 @@ type Task = {
   requiresUpload: boolean;
   requiresVideo: boolean;
   showsTeam: boolean;
+  requiresContract: boolean;
+  requiresAccessChecklist: boolean;
 };
 
 type AdmissionDocumentRecord = {
@@ -32,13 +36,18 @@ export function ColaboradorOnboarding({
   tasks,
   completedTaskIds,
   admissionDocuments,
+  signedContract,
+  completedAccessItems,
 }: {
   tasks: Task[];
   completedTaskIds: string[];
   admissionDocuments: AdmissionDocumentRecord[];
+  signedContract: { submittedAt: string | null };
+  completedAccessItems: string[];
 }) {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
+  const [pendingAccessItem, setPendingAccessItem] = useState<string | null>(null);
 
   // Derived fresh from props every render (never copied into local state) —
   // both the toggle action and AdmissionDocumentBox's router.refresh() cause
@@ -55,6 +64,15 @@ export function ColaboradorOnboarding({
       await toggleOnboardingTask(taskId);
     } finally {
       setPendingTaskId(null);
+    }
+  }
+
+  async function handleToggleAccessItem(item: string) {
+    setPendingAccessItem(item);
+    try {
+      await toggleOnboardingAccessItem(item);
+    } finally {
+      setPendingAccessItem(null);
     }
   }
 
@@ -82,7 +100,11 @@ export function ColaboradorOnboarding({
                 className={styles.itemButton}
                 disabled={pendingTaskId === task.id}
                 onClick={() =>
-                  task.requiresUpload || task.requiresVideo || task.showsTeam
+                  task.requiresUpload ||
+                  task.requiresVideo ||
+                  task.showsTeam ||
+                  task.requiresContract ||
+                  task.requiresAccessChecklist
                     ? setExpandedTaskId(expanded ? null : task.id)
                     : handleToggle(task.id)
                 }
@@ -93,29 +115,25 @@ export function ColaboradorOnboarding({
                 </div>
                 <div className={styles.itemRight}>
                   <span className={isDone ? styles.statusComplete : styles.statusPending}>
-                    {task.requiresUpload
+                    {task.requiresUpload ||
+                  task.requiresVideo ||
+                  task.showsTeam ||
+                  task.requiresContract ||
+                  task.requiresAccessChecklist
                       ? isDone
                         ? "Concluído"
                         : expanded
                           ? "Fechar"
-                          : "Enviar"
-                      : task.requiresVideo
-                        ? isDone
-                          ? "Concluído"
-                          : expanded
-                            ? "Fechar"
-                            : "Assistir"
-                        : task.showsTeam
-                          ? isDone
-                            ? "Concluído"
-                            : expanded
-                              ? "Fechar"
-                              : "Ver equipe"
-                          : isDone
-                            ? "Desfazer"
-                            : "Concluído"}
+                          : "Pendente"
+                      : isDone
+                        ? "Desfazer"
+                        : "Concluído"}
                   </span>
-                  {task.requiresUpload || task.requiresVideo || task.showsTeam ? (
+                  {task.requiresUpload ||
+                  task.requiresVideo ||
+                  task.showsTeam ||
+                  task.requiresContract ||
+                  task.requiresAccessChecklist ? (
                     <svg
                       className={expanded ? `${styles.itemChevron} ${styles.itemChevronOpen}` : styles.itemChevron}
                       viewBox="0 0 24 24"
@@ -173,6 +191,31 @@ export function ColaboradorOnboarding({
                   isDone={isDone}
                   pending={pendingTaskId === task.id}
                   onToggle={() => handleToggle(task.id)}
+                />
+              ) : null}
+
+              {task.requiresContract && expanded ? (
+                <div className={styles.videoSection}>
+                  <ContractBox
+                    existing={
+                      signedContract.submittedAt
+                        ? {
+                            submittedAtLabel: new Date(signedContract.submittedAt).toLocaleDateString("pt-BR", {
+                              timeZone: "UTC",
+                            }),
+                          }
+                        : null
+                    }
+                    onSubmitted={() => !isDone && handleToggle(task.id)}
+                  />
+                </div>
+              ) : null}
+
+              {task.requiresAccessChecklist && expanded ? (
+                <AccessChecklistSection
+                  completedItems={completedAccessItems}
+                  pendingItem={pendingAccessItem}
+                  onToggleItem={handleToggleAccessItem}
                 />
               ) : null}
             </li>

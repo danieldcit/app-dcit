@@ -13,6 +13,8 @@ type Task = {
   requiresUpload: boolean;
   requiresVideo: boolean;
   showsTeam: boolean;
+  requiresContract: boolean;
+  requiresAccessChecklist: boolean;
 };
 
 type TeamProgress = {
@@ -22,6 +24,7 @@ type TeamProgress = {
   totalCount: number;
   tasks: Task[];
   completedTaskIds: string[];
+  fullAccessGrantedAt: string | null;
 };
 
 type AdmissionDocumentRecord = {
@@ -40,15 +43,20 @@ export default async function OnboardingPage() {
   }
 
   if (session.role === "colaborador") {
-    const [{ tasks, completedTaskIds }, admissionDocuments] = await Promise.all([
-      apiFetchJson<{ tasks: Task[]; completedTaskIds: string[] }>("/onboarding/tarefas"),
+    const [{ tasks, completedTaskIds, completedAccessItems }, admissionDocuments, signedContract] = await Promise.all([
+      apiFetchJson<{ tasks: Task[]; completedTaskIds: string[]; completedAccessItems: string[] }>(
+        "/onboarding/tarefas",
+      ),
       apiFetchJson<AdmissionDocumentRecord[]>("/documentos/admissionais"),
+      apiFetchJson<{ submittedAt: string | null }>("/documentos/contrato"),
     ]);
     return (
       <ColaboradorOnboarding
         tasks={tasks}
         completedTaskIds={completedTaskIds}
         admissionDocuments={admissionDocuments}
+        signedContract={signedContract}
+        completedAccessItems={completedAccessItems}
       />
     );
   }
