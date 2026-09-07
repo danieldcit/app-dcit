@@ -16,6 +16,10 @@ test("colaborador sees their own holerites, read-only", async ({ page, context, 
   await expect(page.getByText("Agosto 2026")).toBeVisible();
   await expect(page.getByText(/Bruto: R\$\s?6\.200,00/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Excluir" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Baixar PDF" })).toHaveAttribute(
+    "href",
+    "/api/documentos/holerites/hol-1/arquivo",
+  );
 });
 
 test("shows an empty state when colaborador has no holerites yet", async ({

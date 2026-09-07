@@ -331,15 +331,113 @@ test("colaborador sees category tabs, with Atestados active by default", async (
   const admissionais = page.getByRole("link", { name: "Admissionais" });
   const atestados = page.getByRole("link", { name: "Atestados" });
   const certificacoes = page.getByRole("link", { name: "Certificações" });
+  const contrato = page.getByRole("link", { name: "Contrato" });
   await expect(admissionais).toBeVisible();
   await expect(atestados).toBeVisible();
   await expect(certificacoes).toBeVisible();
+  await expect(contrato).toBeVisible();
   await expect(atestados).toHaveClass(/categoryTabActive/);
 
   await admissionais.click();
   await expect(page).toHaveURL(/categoria=admissionais/);
   await expect(admissionais).toHaveClass(/categoryTabActive/);
   await expect(atestados).not.toHaveClass(/categoryTabActive/);
+});
+
+test("colaborador sees the Contrato tab, can download the model and upload a signed one", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, {
+    myAdmissionDocuments: [],
+    myCertifications: [],
+    myAtestados: [],
+    myContract: { submittedAt: null },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/documentos/contrato",
+    status: 201,
+    response: { submittedAt: "2026-09-07T12:00:00.000Z" },
+  });
+
+  await page.goto("/documentos?categoria=contrato");
+
+  await expect(page.getByText("Nenhum contrato assinado enviado ainda.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Baixar modelo do contrato" })).toHaveAttribute(
+    "href",
+    "/documents/contrato-modelo.pdf",
+  );
+
+  await page.setInputFiles('input[type="file"]', {
+    name: "contrato-assinado.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4 fake"),
+  });
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.find((r) => r.method === "POST" && r.path === "/documentos/contrato")?.body;
+    })
+    .toEqual({ fileDataUrl: expect.stringMatching(/^data:application\/pdf;base64,/) });
+});
+
+test("rejects a non-PDF file for the signed contract with an inline error", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, {
+    myAdmissionDocuments: [],
+    myCertifications: [],
+    myAtestados: [],
+    myContract: { submittedAt: null },
+  });
+
+  await page.goto("/documentos?categoria=contrato");
+  await page.setInputFiles('input[type="file"]', {
+    name: "foto.jpg",
+    mimeType: "image/jpeg",
+    buffer: Buffer.from("fake-jpeg-bytes"),
+  });
+
+  await expect(page.getByText("Formato não suportado — envie um PDF.")).toBeVisible();
+});
+
+test("gestor/rh see who has sent a signed contract, with a download link only when one exists", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context);
+  await mockApi(request, {
+    atestados: [],
+    admissionDocuments: [],
+    certifications: [],
+    teamContracts: [
+      { userId: "colab-1", userName: "Colaborador Um", submittedAt: "2026-09-07T10:09:00.000Z" },
+      { userId: "colab-2", userName: "Colaborador Dois", submittedAt: null },
+    ],
+  });
+
+  await page.goto("/documentos");
+
+  await expect(page.getByText("Colaborador Um")).toBeVisible();
+  await expect(page.getByText("Colaborador Dois")).toBeVisible();
+  await expect(page.getByText("Nenhum contrato assinado enviado ainda.")).toBeVisible();
+
+  const row = page.locator("li").filter({ has: page.getByText("Colaborador Um") });
+  await expect(row.getByRole("link", { name: "Baixar" })).toHaveAttribute(
+    "href",
+    "/api/documentos/contrato/colab-1/arquivo",
+  );
+  const otherRow = page.locator("li").filter({ has: page.getByText("Colaborador Dois") });
+  await expect(otherRow.getByRole("link", { name: "Baixar" })).toHaveCount(0);
 });
 
 test("colaborador sees the 5 fixed document boxes and can submit one with a photo", async ({

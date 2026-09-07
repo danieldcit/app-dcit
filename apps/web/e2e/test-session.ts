@@ -72,6 +72,8 @@ export async function mockApi(
     myCompensations?: unknown[];
     feriasData?: unknown;
     notifications?: unknown[];
+    myContract?: unknown;
+    teamContracts?: unknown[];
   } = {}
 ) {
   await request.post(`${FAKE_API_URL}/__reset`);
@@ -223,6 +225,16 @@ export async function mockApi(
   if (data.notifications) {
     await request.post(`${FAKE_API_URL}/__seed`, {
       data: { path: "/notifications/mine", response: data.notifications },
+    });
+  }
+  if (data.myContract) {
+    await request.post(`${FAKE_API_URL}/__seed`, {
+      data: { path: "/documentos/contrato", response: data.myContract },
+    });
+  }
+  if (data.teamContracts) {
+    await request.post(`${FAKE_API_URL}/__seed`, {
+      data: { path: "/documentos/contrato/equipe", response: data.teamContracts },
     });
   }
 }

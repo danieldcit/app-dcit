@@ -27,6 +27,7 @@ test("shows each employee's onboarding progress for a gestor", async ({
         totalCount: 2,
         tasks: GESTOR_VIEW_TASKS,
         completedTaskIds: ["task-1"],
+        fullAccessGrantedAt: null,
       },
       {
         userId: "user-2",
@@ -35,6 +36,7 @@ test("shows each employee's onboarding progress for a gestor", async ({
         totalCount: 2,
         tasks: GESTOR_VIEW_TASKS,
         completedTaskIds: ["task-1", "task-2"],
+        fullAccessGrantedAt: null,
       },
     ],
   });
@@ -61,6 +63,7 @@ test("clicking an employee opens the task list with done/pending status", async 
         totalCount: 2,
         tasks: GESTOR_VIEW_TASKS,
         completedTaskIds: ["task-1"],
+        fullAccessGrantedAt: null,
       },
     ],
   });
@@ -73,6 +76,102 @@ test("clicking an employee opens the task list with done/pending status", async 
   await expect(doneTask.getByText("Concluída")).toBeVisible();
   const pendingTask = page.locator("li", { hasText: "Configure acessos" });
   await expect(pendingTask.getByText("Pendente")).toBeVisible();
+});
+
+test("the 'Liberar acesso total ao SGP Portal' button is disabled while tasks are pending", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context);
+  await mockApi(request, {
+    onboardingProgress: [
+      {
+        userId: "user-1",
+        userName: "Diana Colaboradora",
+        completedCount: 1,
+        totalCount: 2,
+        tasks: GESTOR_VIEW_TASKS,
+        completedTaskIds: ["task-1"],
+        fullAccessGrantedAt: null,
+      },
+    ],
+  });
+
+  await page.goto("/onboarding");
+  await page.getByRole("button", { name: /Diana Colaboradora/ }).click();
+
+  await expect(
+    page.getByRole("button", { name: "Liberar acesso total ao SGP Portal" }),
+  ).toBeDisabled();
+});
+
+test("the 'Liberar acesso total ao SGP Portal' button is enabled once every task is done, and calls the API", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context);
+  await mockApi(request, {
+    onboardingProgress: [
+      {
+        userId: "user-1",
+        userName: "Diana Colaboradora",
+        completedCount: 2,
+        totalCount: 2,
+        tasks: GESTOR_VIEW_TASKS,
+        completedTaskIds: ["task-1", "task-2"],
+        fullAccessGrantedAt: null,
+      },
+    ],
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/onboarding/equipe/user-1/liberar-acesso",
+    response: { grantedAt: "2026-09-07T12:00:00.000Z" },
+  });
+
+  await page.goto("/onboarding");
+  await page.getByRole("button", { name: /Diana Colaboradora/ }).click();
+
+  const grantButton = page.getByRole("button", { name: "Liberar acesso total ao SGP Portal" });
+  await expect(grantButton).toBeEnabled();
+  await grantButton.click();
+
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.some(
+        (r) => r.method === "POST" && r.path === "/onboarding/equipe/user-1/liberar-acesso",
+      );
+    })
+    .toBe(true);
+});
+
+test("shows 'Acesso liberado' (disabled) once full access has already been granted", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context);
+  await mockApi(request, {
+    onboardingProgress: [
+      {
+        userId: "user-1",
+        userName: "Diana Colaboradora",
+        completedCount: 2,
+        totalCount: 2,
+        tasks: GESTOR_VIEW_TASKS,
+        completedTaskIds: ["task-1", "task-2"],
+        fullAccessGrantedAt: "2026-09-06T12:00:00.000Z",
+      },
+    ],
+  });
+
+  await page.goto("/onboarding");
+  await page.getByRole("button", { name: /Diana Colaboradora/ }).click();
+
+  await expect(page.getByRole("button", { name: "Acesso liberado" })).toBeDisabled();
 });
 
 test("colaborador sees the onboarding checklist with a progress bar", async ({ page, context, request }) => {
@@ -148,7 +247,7 @@ test("the Assistir ao vídeo task expands to an embedded player, not a toggle", 
   });
 
   await page.goto("/onboarding");
-  await expect(page.getByText("Assistir", { exact: true })).toBeVisible();
+  await expect(page.getByText("Pendente", { exact: true })).toBeVisible();
   await page.getByText("Assistir ao vídeo de boas-vindas").click();
 
   await expect(page.getByText("Fechar", { exact: true })).toBeVisible();
@@ -193,7 +292,7 @@ test("the Conhecer o time task expands to the team grid, with its own Marcar com
   });
 
   await page.goto("/onboarding");
-  await expect(page.getByText("Ver equipe", { exact: true })).toBeVisible();
+  await expect(page.getByText("Pendente", { exact: true })).toBeVisible();
   await page.getByText("Conhecer o time").click();
 
   await expect(page.getByText("Fechar", { exact: true })).toBeVisible();
@@ -210,6 +309,76 @@ test("the Conhecer o time task expands to the team grid, with its own Marcar com
     .poll(async () => {
       const requests = await getRecordedRequests(request);
       return requests.some((r) => r.method === "POST" && r.path === "/onboarding/tarefas/task-4/toggle");
+    })
+    .toBe(true);
+});
+
+test("the Assinar o contrato task expands to a download+upload box and auto-completes on submit", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [], myContract: { submittedAt: null } });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [
+        {
+          id: "task-1",
+          title: "Assinar o contrato",
+          description: "Revise e assine seu contrato de trabalho digitalmente.",
+          requiresUpload: false,
+          requiresVideo: false,
+          showsTeam: false,
+          requiresContract: true,
+        },
+      ],
+      completedTaskIds: [],
+    },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/documentos/contrato",
+    status: 201,
+    response: { submittedAt: "2026-09-07T12:00:00.000Z" },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/onboarding/tarefas/task-1/toggle",
+    response: { completed: true },
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByText("Pendente", { exact: true })).toBeVisible();
+  await page.getByText("Assinar o contrato").click();
+
+  await expect(page.getByRole("link", { name: "Baixar modelo do contrato" })).toHaveAttribute(
+    "href",
+    "/documents/contrato-modelo.pdf",
+  );
+
+  await page.setInputFiles('input[type="file"]', {
+    name: "contrato-assinado.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4 fake"),
+  });
+  await page.getByRole("button", { name: "Enviar" }).click();
+
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.find((r) => r.method === "POST" && r.path === "/documentos/contrato")?.body;
+    })
+    .toEqual({ fileDataUrl: expect.stringMatching(/^data:application\/pdf;base64,/) });
+
+  // Uploading the signed contract must also mark the onboarding task done —
+  // same auto-complete-on-action shape as the welcome video's onEnded.
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.some((r) => r.method === "POST" && r.path === "/onboarding/tarefas/task-1/toggle");
     })
     .toBe(true);
 });
@@ -343,6 +512,69 @@ test("toggling a non-upload task calls the toggle endpoint", async ({ page, cont
       return recorded.some((r) => r.method === "POST" && r.path === "/onboarding/tarefas/task-1/toggle");
     })
     .toBe(true);
+});
+
+test("the Configurar seus acessos task expands to 5 independently toggleable items", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [
+        {
+          id: "task-5",
+          title: "Configurar seus acessos",
+          description: "Configure seus acessos ao sistema.",
+          requiresUpload: false,
+          requiresVideo: false,
+          showsTeam: false,
+          requiresContract: false,
+          requiresAccessChecklist: true,
+        },
+      ],
+      completedTaskIds: [],
+      completedAccessItems: [],
+    },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/onboarding/acessos/teams/toggle",
+    response: { completed: true },
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByText("Pendente", { exact: true })).toBeVisible();
+  await page.getByText("Configurar seus acessos").click();
+
+  await expect(page.getByText("Fechar", { exact: true })).toBeVisible();
+  await expect(page.getByText("SGN Portal")).toBeVisible();
+  await expect(page.getByText("Movidesk")).toBeVisible();
+  await expect(page.getByText("Email corporativo")).toBeVisible();
+  await expect(page.getByText("Teams")).toBeVisible();
+  await expect(page.getByText("Site24x7")).toBeVisible();
+
+  // Each item is its own toggle — clicking one must not call the overall
+  // task's toggle endpoint, only the item-scoped one. Scoped to the task's
+  // own <li> first, same reasoning as the "Enviar documentos" tests above:
+  // the outer task <li> also "has" the text "Teams" as a nested descendant.
+  const taskItem = page.locator("li").filter({ has: page.getByText("Configurar seus acessos") });
+  const teamsItem = taskItem.locator("li").filter({ has: page.getByText("Teams", { exact: true }) });
+  await teamsItem.getByRole("button", { name: "Pendente" }).click();
+
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.some((r) => r.method === "POST" && r.path === "/onboarding/acessos/teams/toggle");
+    })
+    .toBe(true);
+
+  const recorded = await getRecordedRequests(request);
+  expect(recorded.some((r) => r.method === "POST" && r.path === "/onboarding/tarefas/task-5/toggle")).toBe(false);
 });
 
 test("a completed non-upload task shows Desfazer, and clicking it undoes the completion", async ({

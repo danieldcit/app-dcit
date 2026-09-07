@@ -167,6 +167,15 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/documentos/holerites") {
     return sendJson(res, 200, []);
   }
+  if (req.method === "GET" && url.pathname === "/documentos/contrato") {
+    return sendJson(res, 200, { submittedAt: null });
+  }
+  if (req.method === "GET" && url.pathname === "/documentos/contrato/equipe") {
+    return sendJson(res, 200, []);
+  }
+  if (req.method === "POST" && /^\/onboarding\/acessos\/[^/]+\/toggle$/.test(url.pathname)) {
+    return sendJson(res, 200, { completed: true });
+  }
   if (req.method === "POST" && url.pathname === "/operacional/escala") {
     return sendJson(res, 201, { id: "generated-id", ...body });
   }
