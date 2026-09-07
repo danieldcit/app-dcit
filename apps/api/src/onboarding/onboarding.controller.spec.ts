@@ -12,6 +12,8 @@ const GUARDED_HANDLERS = [
   'getTasks',
   'toggleTask',
   'listTeamProgress',
+  'toggleAccessItem',
+  'grantFullAccess',
 ] as const;
 
 describe('OnboardingController guard metadata', () => {
@@ -40,6 +42,22 @@ describe('OnboardingController guard metadata', () => {
     expect(guards).toContain(RolesGuard);
     expect(roles).toEqual(['gestor', 'rh']);
   });
+
+  it('applies RolesGuard(gestor, rh) to grantFullAccess', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      OnboardingController.prototype.grantFullAccess,
+    ) as unknown[] | undefined;
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      OnboardingController.prototype.grantFullAccess,
+    ) as unknown[] | undefined;
+
+    expect(guards).toContain(RolesGuard);
+    expect(roles).toEqual(['gestor', 'rh']);
+  });
 });
 
 describe('OnboardingController', () => {
@@ -48,6 +66,8 @@ describe('OnboardingController', () => {
     getTasks: jest.fn(),
     toggleTask: jest.fn(),
     listTeamProgress: jest.fn(),
+    toggleAccessItem: jest.fn(),
+    grantFullAccess: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -98,5 +118,31 @@ describe('OnboardingController', () => {
       { userId: 'user-1', userName: 'Ana', completedCount: 2, totalCount: 5 },
     ]);
     expect(serviceMock.listTeamProgress).toHaveBeenCalledWith();
+  });
+
+  it('toggles a valid access item for the authenticated user', async () => {
+    serviceMock.toggleAccessItem.mockResolvedValue({ completed: true });
+
+    const result = await controller.toggleAccessItem('teams', requestAs('user-1'));
+
+    expect(serviceMock.toggleAccessItem).toHaveBeenCalledWith('user-1', 'teams');
+    expect(result).toEqual({ completed: true });
+  });
+
+  it('rejects an invalid access item without calling the service', () => {
+    expect(() => controller.toggleAccessItem('not-a-real-item', requestAs('user-1'))).toThrow(
+      'item de acesso inválido',
+    );
+
+    expect(serviceMock.toggleAccessItem).not.toHaveBeenCalled();
+  });
+
+  it('grants full access for the given userId', async () => {
+    serviceMock.grantFullAccess.mockResolvedValue({ grantedAt: new Date('2026-09-07') });
+
+    const result = await controller.grantFullAccess('user-2');
+
+    expect(serviceMock.grantFullAccess).toHaveBeenCalledWith('user-2');
+    expect(result).toEqual({ grantedAt: new Date('2026-09-07') });
   });
 });

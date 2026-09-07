@@ -449,6 +449,36 @@ describe('NotificationsService', () => {
     });
   });
 
+  describe('sendFullAccessGranted', () => {
+    it('creates one notification for the colaborador, linking to /onboarding', async () => {
+      await service.sendFullAccessGranted('user-access-granted-colaborador');
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { type: 'onboarding_acesso_liberado', userId: 'user-access-granted-colaborador' },
+      });
+      expect(notification).toMatchObject({
+        type: 'onboarding_acesso_liberado',
+        category: null,
+        message: 'Seu acesso total ao SGP Portal foi liberado.',
+        link: '/onboarding',
+      });
+    });
+
+    it('sends a push to the colaborador with the notification id in the data payload', async () => {
+      await service.sendFullAccessGranted('user-access-granted-colaborador-2');
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { type: 'onboarding_acesso_liberado', userId: 'user-access-granted-colaborador-2' },
+      });
+      expect(sendToUser).toHaveBeenCalledWith('user-access-granted-colaborador-2', {
+        title: 'Ponto DCIT',
+        body: notification.message,
+        data: { notificationId: notification.id, link: '/onboarding' },
+      });
+    });
+  });
+
   describe('sendDocumentSubmitted', () => {
     afterEach(async () => {
       await prisma.employee.deleteMany({ where: { userId: { startsWith: 'user-doc-sub-' } } });

@@ -28,25 +28,29 @@ const muralMessage = (title: string) => `"${title}" foi publicado no mural.`;
 const careerLevelUpMessage = (subNivel: string, novoSalario: number, notaFinal: number) =>
   `🚀 Parabéns! Você avançou para ${subNivel}. Novo salário: R$ ${novoSalario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Sua nota final: ${notaFinal.toFixed(1).replace('.', ',')}/10.`;
 
-export type DocumentKind = 'atestado' | 'admissional';
+export type DocumentKind = 'atestado' | 'admissional' | 'contrato';
 
 const documentStatusMessage = (kind: DocumentKind, status: 'aprovado' | 'recusado') => {
-  const noun = kind === 'atestado' ? 'atestado' : 'documento admissional';
+  const noun = kind === 'atestado' ? 'atestado' : kind === 'admissional' ? 'documento admissional' : 'contrato';
   return status === 'aprovado' ? `Seu ${noun} foi aprovado.` : `Seu ${noun} foi reprovado.`;
 };
 
 const DOCUMENT_STATUS_LINK: Record<DocumentKind, string> = {
   atestado: '/documentos?categoria=atestados',
   admissional: '/documentos?categoria=admissionais',
+  contrato: '/documentos?categoria=contrato',
 };
 
 const DOCUMENT_SUBMITTED_LABEL: Record<DocumentKind, string> = {
   atestado: 'um atestado',
   admissional: 'um documento admissional',
+  contrato: 'o contrato assinado',
 };
 
 const onboardingTaskCompletedMessage = (colaboradorName: string, taskTitle: string) =>
   `${colaboradorName} concluiu a etapa "${taskTitle}" do onboarding.`;
+
+const FULL_ACCESS_GRANTED_MESSAGE = 'Seu acesso total ao SGP Portal foi liberado.';
 
 @Injectable()
 export class NotificationsService {
@@ -282,6 +286,24 @@ export class NotificationsService {
         }),
       ),
     );
+  }
+
+  async sendFullAccessGranted(userId: string): Promise<void> {
+    const created = await this.prisma.notification.create({
+      data: {
+        userId,
+        type: 'onboarding_acesso_liberado',
+        category: null,
+        message: FULL_ACCESS_GRANTED_MESSAGE,
+        link: '/onboarding',
+      },
+    });
+
+    void this.expoPush.sendToUser(created.userId, {
+      title: 'Ponto DCIT',
+      body: created.message,
+      data: { notificationId: created.id, link: created.link },
+    });
   }
 
   async sendCareerLevelUp(userId: string, subNivel: string, novoSalario: number, notaFinal: number): Promise<void> {

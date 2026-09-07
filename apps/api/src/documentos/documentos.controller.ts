@@ -5,19 +5,22 @@ import {
   Delete,
   Get,
   HttpCode,
+  NotFoundException,
   Param,
   Patch,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import {
   AdmissionDocumentInputSchema,
   AdmissionDocumentStatusUpdateSchema,
   CertificationInputSchema,
   PayslipInputSchema,
   PayslipUpdateSchema,
+  SignedContractInputSchema,
 } from '@ponto-dcit/shared-types';
 import { DocumentosService } from './documentos.service';
 import { AuthGuard } from '../auth/auth-guard';
@@ -54,6 +57,24 @@ export class DocumentosController {
   @Get('holerites/equipe')
   listAllPayslips() {
     return this.documentos.listAllPayslips();
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('holerites/:id/arquivo')
+  async getPayslipFile(
+    @Param('id') id: string,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    const pdf = await this.documentos.getPayslipFile(id, req.user.role, req.user.sub);
+    if (!pdf) {
+      throw new NotFoundException('Holerite não encontrado.');
+    }
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="holerite.pdf"',
+    });
+    res.send(pdf);
   }
 
   @UseGuards(AuthGuard, RolesGuard)
@@ -126,6 +147,37 @@ export class DocumentosController {
       result.data.status,
       result.data.reviewNote,
     );
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('contrato')
+  @HttpCode(201)
+  async submitSignedContract(@Body() body: unknown, @Req() req: AuthenticatedRequest) {
+    const result = SignedContractInputSchema.safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten());
+    }
+    return this.documentos.submitSignedContract(req.user.sub, req.user.name, result.data.fileDataUrl);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('contrato')
+  getMySignedContract(@Req() req: AuthenticatedRequest) {
+    return this.documentos.getMySignedContract(req.user.sub);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('gestor', 'rh')
+  @Get('contrato/equipe')
+  listTeamSignedContracts() {
+    return this.documentos.listTeamSignedContracts();
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('contrato/:userId/arquivo')
+  async getSignedContractFile(@Param('userId') userId: string, @Req() req: AuthenticatedRequest) {
+    const fileDataUrl = await this.documentos.getSignedContractFile(userId, req.user.role, req.user.sub);
+    return { fileDataUrl };
   }
 
   @UseGuards(AuthGuard)

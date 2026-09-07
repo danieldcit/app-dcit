@@ -23,6 +23,11 @@ const GUARDED_HANDLERS = [
   'listAllPayslips',
   'getAdmissionDocumentPhotos',
   'updateAdmissionDocumentStatus',
+  'submitSignedContract',
+  'getMySignedContract',
+  'listTeamSignedContracts',
+  'getSignedContractFile',
+  'getPayslipFile',
 ] as const;
 
 describe('DocumentosController guard metadata', () => {
@@ -44,6 +49,7 @@ describe('DocumentosController guard metadata', () => {
     'removePayslip',
     'listAllPayslips',
     'updateAdmissionDocumentStatus',
+    'listTeamSignedContracts',
   ] as const)('applies RolesGuard(gestor, rh) to %s', (handlerName) => {
     const guards = Reflect.getMetadata(
       GUARDS_METADATA,
@@ -93,6 +99,11 @@ describe('DocumentosController', () => {
     listAllPayslips: jest.fn(),
     getAdmissionDocumentPhotos: jest.fn(),
     updateAdmissionDocumentStatus: jest.fn(),
+    submitSignedContract: jest.fn(),
+    getMySignedContract: jest.fn(),
+    listTeamSignedContracts: jest.fn(),
+    getSignedContractFile: jest.fn(),
+    getPayslipFile: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -321,5 +332,84 @@ describe('DocumentosController', () => {
     const result = await controller.listAllPayslips();
 
     expect(result).toEqual([{ id: '1', userId: 'user-1', userName: 'Ana' }]);
+  });
+
+  const PDF_DATA_URL = 'data:application/pdf;base64,ZmFrZS1wZGYtZGF0YQ==';
+
+  it('submits a signed contract for the authenticated user, never trusting a body userId', async () => {
+    serviceMock.submitSignedContract.mockResolvedValue({ submittedAt: new Date('2026-09-07') });
+
+    await controller.submitSignedContract(
+      { fileDataUrl: PDF_DATA_URL, userId: 'someone-else' },
+      requestAs('user-1'),
+    );
+
+    expect(serviceMock.submitSignedContract).toHaveBeenCalledWith('user-1', 'Test User', PDF_DATA_URL);
+  });
+
+  it('rejects a signed contract body that is not a PDF data URL', async () => {
+    await expect(
+      controller.submitSignedContract({ fileDataUrl: PHOTO_DATA_URL }, requestAs('user-1')),
+    ).rejects.toThrow(BadRequestException);
+    expect(serviceMock.submitSignedContract).not.toHaveBeenCalled();
+  });
+
+  it("gets the authenticated user's own signed contract status", async () => {
+    serviceMock.getMySignedContract.mockResolvedValue({ submittedAt: new Date('2026-09-07') });
+
+    await controller.getMySignedContract(requestAs('user-1'));
+
+    expect(serviceMock.getMySignedContract).toHaveBeenCalledWith('user-1');
+  });
+
+  it('lists signed contract status across the whole team', async () => {
+    serviceMock.listTeamSignedContracts.mockResolvedValue([
+      { userId: 'user-1', userName: 'Ana', submittedAt: null },
+    ]);
+
+    const result = await controller.listTeamSignedContracts();
+
+    expect(result).toEqual([{ userId: 'user-1', userName: 'Ana', submittedAt: null }]);
+  });
+
+  it('fetches a signed contract file, passing the viewer role/id through to the service', async () => {
+    serviceMock.getSignedContractFile.mockResolvedValue(PDF_DATA_URL);
+
+    const result = await controller.getSignedContractFile('user-2', requestAs('user-1'));
+
+    expect(result).toEqual({ fileDataUrl: PDF_DATA_URL });
+    expect(serviceMock.getSignedContractFile).toHaveBeenCalledWith('user-2', 'colaborador', 'user-1');
+  });
+
+  function responseMock() {
+    return { set: jest.fn(), send: jest.fn() } as unknown as import('express').Response;
+  }
+
+  it('streams a payslip PDF with the right headers, passing the viewer role/id through to the service', async () => {
+    const pdfBuffer = Buffer.from('%PDF-fake');
+    serviceMock.getPayslipFile.mockResolvedValue(pdfBuffer);
+    const res = responseMock();
+
+    await controller.getPayslipFile('p1', requestAs('user-1'), res);
+
+    expect(serviceMock.getPayslipFile).toHaveBeenCalledWith('p1', 'colaborador', 'user-1');
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(res.set).toHaveBeenCalledWith({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="holerite.pdf"',
+    });
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(res.send).toHaveBeenCalledWith(pdfBuffer);
+  });
+
+  it('throws NotFoundException, without writing a response, when the service finds nothing', async () => {
+    serviceMock.getPayslipFile.mockResolvedValue(null);
+    const res = responseMock();
+
+    await expect(controller.getPayslipFile('missing', requestAs('user-1'), res)).rejects.toThrow(
+      'Holerite não encontrado.',
+    );
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    expect(res.send).not.toHaveBeenCalled();
   });
 });

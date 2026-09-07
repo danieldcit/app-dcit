@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ExpoPushService } from '../push/expo-push.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { buildPayslipPdf } from './payslip-pdf';
 
 function parseDateBR(value: string): Date {
   const [day, month, year] = value.split('/').map(Number);
@@ -64,6 +65,18 @@ export class DocumentosService {
   async listAllPayslips() {
     const payslips = await this.prisma.payslip.findMany();
     return this.withRequesterNames(payslips);
+  }
+
+  // Same access rule as getSignedContractFile: the owner can always download
+  // their own holerite, gestor/rh can download anyone's. Returns null for
+  // both "not found" and "forbidden" so the controller can't leak which.
+  async getPayslipFile(id: string, viewerRole: Role, viewerUserId: string): Promise<Buffer | null> {
+    const payslip = await this.prisma.payslip.findUnique({ where: { id } });
+    if (!payslip) return null;
+    const isReviewer = viewerRole === 'gestor' || viewerRole === 'rh';
+    if (!isReviewer && payslip.userId !== viewerUserId) return null;
+    const employee = await this.prisma.employee.findUnique({ where: { userId: payslip.userId } });
+    return buildPayslipPdf(payslip, employee?.name ?? payslip.userId);
   }
 
   // One row per (userId, kind) — the "caixinha" for a fixed document type
@@ -151,6 +164,59 @@ export class DocumentosService {
       await this.notifications.sendDocumentStatusChanged('admissional', updated.userId, status);
     }
     return updated;
+  }
+
+  // One row per userId — resubmitting replaces the previous file and bumps
+  // submittedAt, same upsert-by-owner pattern as createAdmissionDocument.
+  async submitSignedContract(userId: string, userName: string, fileDataUrl: string) {
+    const contract = await this.prisma.signedContract.upsert({
+      where: { userId },
+      create: { userId, fileDataUrl },
+      update: { fileDataUrl, submittedAt: new Date() },
+    });
+    await this.notifications.sendDocumentSubmitted('contrato', userId, userName);
+    return { submittedAt: contract.submittedAt };
+  }
+
+  // Always resolves to an object, never a bare null — same reasoning as
+  // getAdmissionDocumentPhotos wrapping its result in { photos }: a
+  // controller returning a bare null serializes as an empty HTTP body,
+  // which breaks a caller's res.json()/JSON.parse().
+  async getMySignedContract(userId: string): Promise<{ submittedAt: Date | null }> {
+    const contract = await this.prisma.signedContract.findUnique({
+      where: { userId },
+      select: { submittedAt: true },
+    });
+    return { submittedAt: contract?.submittedAt ?? null };
+  }
+
+  // Same access rule as getAdmissionDocumentPhotos: the owner can always see
+  // their own file, gestor/rh can see anyone's — no other colaborador can.
+  async getSignedContractFile(
+    contractUserId: string,
+    viewerRole: Role,
+    viewerUserId: string,
+  ): Promise<string | null> {
+    const isReviewer = viewerRole === 'gestor' || viewerRole === 'rh';
+    if (!isReviewer && contractUserId !== viewerUserId) return null;
+    const contract = await this.prisma.signedContract.findUnique({
+      where: { userId: contractUserId },
+      select: { fileDataUrl: true },
+    });
+    return contract?.fileDataUrl ?? null;
+  }
+
+  async listTeamSignedContracts() {
+    const [employees, contracts] = await Promise.all([
+      this.prisma.employee.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } }),
+      this.prisma.signedContract.findMany({ select: { userId: true, submittedAt: true } }),
+    ]);
+    const submittedAtByUserId = new Map(contracts.map((c) => [c.userId, c.submittedAt]));
+    return employees.map((employee) => ({
+      userId: employee.userId,
+      userName: employee.name,
+      submittedAt: submittedAtByUserId.get(employee.userId) ?? null,
+    }));
   }
 
   createCertification(userId: string, input: CertificationInput) {

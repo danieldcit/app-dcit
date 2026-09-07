@@ -7,6 +7,7 @@ import { ExpoPushService } from '../push/expo-push.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 const PHOTO_DATA_URL = 'data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh';
+const PDF_DATA_URL = 'data:application/pdf;base64,ZmFrZS1wZGYtZGF0YQ==';
 
 describe('DocumentosService', () => {
   let service: DocumentosService;
@@ -36,9 +37,21 @@ describe('DocumentosService', () => {
     await prisma.payslip.deleteMany();
     await prisma.admissionDocument.deleteMany();
     await prisma.certification.deleteMany();
+    await prisma.signedContract.deleteMany({ where: { userId: { startsWith: 'user-contract-' } } });
     await prisma.notification.deleteMany({ where: { type: 'holerite' } });
     await prisma.employee.deleteMany({
-      where: { userId: { in: ['user-e', 'user-f'] } },
+      where: {
+        userId: {
+          in: [
+            'user-e',
+            'user-f',
+            'user-contract-a',
+            'user-contract-b',
+            'user-contract-c',
+            'user-contract-d',
+          ],
+        },
+      },
     });
     await prisma.onModuleDestroy();
   });
@@ -150,6 +163,59 @@ describe('DocumentosService', () => {
 
     const listed = await service.listAllPayslips();
     expect(listed.find((p) => p.id === created.id)).toBeUndefined();
+  });
+
+  describe('getPayslipFile', () => {
+    it('lets the owner download their own holerite as a PDF', async () => {
+      const created = await service.createPayslip({
+        userId: 'user-payslip-owner',
+        label: 'Outubro/2026',
+        gross: 6200,
+        inss: 682,
+        irrf: 410,
+        benefits: 380,
+      });
+
+      const pdf = await service.getPayslipFile(created.id, 'colaborador', 'user-payslip-owner');
+
+      expect(pdf).not.toBeNull();
+      expect(pdf?.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    });
+
+    it('lets gestor and rh download any holerite', async () => {
+      const created = await service.createPayslip({
+        userId: 'user-payslip-owner',
+        label: 'Novembro/2026',
+        gross: 6200,
+        inss: 682,
+        irrf: 410,
+        benefits: 380,
+      });
+
+      expect(await service.getPayslipFile(created.id, 'gestor', 'someone-else')).not.toBeNull();
+      expect(await service.getPayslipFile(created.id, 'rh', 'someone-else')).not.toBeNull();
+    });
+
+    it('denies a different colaborador (returns null, not the file)', async () => {
+      const created = await service.createPayslip({
+        userId: 'user-payslip-owner',
+        label: 'Dezembro/2026',
+        gross: 6200,
+        inss: 682,
+        irrf: 410,
+        benefits: 380,
+      });
+
+      const pdf = await service.getPayslipFile(created.id, 'colaborador', 'someone-else');
+
+      expect(pdf).toBeNull();
+    });
+
+    it('returns null for a holerite that does not exist', async () => {
+      const pdf = await service.getPayslipFile('never-existed', 'gestor', 'someone-else');
+
+      expect(pdf).toBeNull();
+    });
   });
 
   it('creates and lists admission documents scoped to the user, deriving the title from kind', async () => {
@@ -336,5 +402,71 @@ describe('DocumentosService', () => {
     expect(results.find((r) => r.userId === 'user-f')?.userName).toBe(
       'Fábio Certificado',
     );
+  });
+
+  describe('signed contract', () => {
+    it('submits a signed contract, notifies gestor/rh, and resubmitting replaces the file instead of creating a second row', async () => {
+      const first = await service.submitSignedContract('user-contract-a', 'Ana Contrato', PDF_DATA_URL);
+      expect(first.submittedAt).toBeInstanceOf(Date);
+      expect(notificationsMock.sendDocumentSubmitted).toHaveBeenCalledWith(
+        'contrato',
+        'user-contract-a',
+        'Ana Contrato',
+      );
+
+      const OTHER_PDF = 'data:application/pdf;base64,b3V0cm8tcGRm';
+      await service.submitSignedContract('user-contract-a', 'Ana Contrato', OTHER_PDF);
+
+      const file = await service.getSignedContractFile('user-contract-a', 'gestor', 'someone-else');
+      expect(file).toBe(OTHER_PDF);
+    });
+
+    it('getMySignedContract resolves to { submittedAt: null }, never a bare null, when nothing was submitted', async () => {
+      const result = await service.getMySignedContract('user-contract-never-submitted');
+      expect(result).toEqual({ submittedAt: null });
+    });
+
+    describe('getSignedContractFile access control', () => {
+      it('lets the owner view their own file', async () => {
+        await service.submitSignedContract('user-contract-b', 'Bruno Contrato', PDF_DATA_URL);
+        const file = await service.getSignedContractFile('user-contract-b', 'colaborador', 'user-contract-b');
+        expect(file).toBe(PDF_DATA_URL);
+      });
+
+      it('lets gestor and rh view any file', async () => {
+        await service.submitSignedContract('user-contract-c', 'Carla Contrato', PDF_DATA_URL);
+        expect(await service.getSignedContractFile('user-contract-c', 'gestor', 'someone-else')).toBe(PDF_DATA_URL);
+        expect(await service.getSignedContractFile('user-contract-c', 'rh', 'someone-else')).toBe(PDF_DATA_URL);
+      });
+
+      it('blocks a third-party colaborador', async () => {
+        await service.submitSignedContract('user-contract-d', 'Duda Contrato', PDF_DATA_URL);
+        const file = await service.getSignedContractFile('user-contract-d', 'colaborador', 'someone-else');
+        expect(file).toBeNull();
+      });
+
+      it('returns null when no contract exists, even for a reviewer', async () => {
+        const file = await service.getSignedContractFile('user-contract-nonexistent', 'gestor', 'someone-else');
+        expect(file).toBeNull();
+      });
+    });
+
+    it('listTeamSignedContracts includes every active employee, with submittedAt null when not sent', async () => {
+      await prisma.employee.create({
+        data: { userId: 'user-contract-a', name: 'Ana Contrato', role: 'colaborador', hireDate: new Date('2024-01-01') },
+      });
+      await prisma.employee.create({
+        data: { userId: 'user-contract-no-contract', name: 'Nico Sem Contrato', role: 'colaborador', hireDate: new Date('2024-01-01') },
+      });
+
+      const results = await service.listTeamSignedContracts();
+
+      const withContract = results.find((r) => r.userId === 'user-contract-a');
+      const withoutContract = results.find((r) => r.userId === 'user-contract-no-contract');
+      expect(withContract?.submittedAt).toBeInstanceOf(Date);
+      expect(withoutContract?.submittedAt).toBeNull();
+
+      await prisma.employee.delete({ where: { userId: 'user-contract-no-contract' } });
+    });
   });
 });
