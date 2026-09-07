@@ -542,5 +542,9 @@ describe('OnboardingService', () => {
 
       expect(await service.isUnlocked('user-auto-a')).toBe(true);
     });
+
+    it('isUnlocked is true (fail-open) when there are no onboarding tasks at all', async () => {
+      expect(await service.isUnlocked('user-auto-no-tasks')).toBe(true);
+    });
   });
 });

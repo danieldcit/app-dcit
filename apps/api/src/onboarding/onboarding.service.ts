@@ -112,7 +112,7 @@ export class OnboardingService {
   // grant already exists (auto or manual) or the track isn't complete yet.
   async checkAutoUnlock(userId: string): Promise<void> {
     const { tasks, completedTaskIds } = await this.getTasks(userId);
-    if (tasks.length === 0 || completedTaskIds.length < tasks.length) return;
+    if (completedTaskIds.length < tasks.length) return;
 
     const existing = await this.prisma.onboardingAccessGrant.findUnique({ where: { userId } });
     if (existing) return;
@@ -128,7 +128,7 @@ export class OnboardingService {
     const grant = await this.prisma.onboardingAccessGrant.findUnique({ where: { userId } });
     if (grant) return true;
     const { tasks, completedTaskIds } = await this.getTasks(userId);
-    return tasks.length > 0 && completedTaskIds.length === tasks.length;
+    return tasks.length === 0 || completedTaskIds.length === tasks.length;
   }
 
   // Two tasks are never toggled by hand, derived instead — both require

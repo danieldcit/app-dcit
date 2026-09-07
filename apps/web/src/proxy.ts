@@ -56,16 +56,17 @@ export async function proxy(request: NextRequest) {
     decodeRole(token) === "colaborador" &&
     !ONBOARDING_ALWAYS_ALLOWED.some((path) => pathname.startsWith(path))
   ) {
-    let unlocked = true; // fail-open: an API hiccup must never lock everyone out
+    let unlocked = true; // fail-open: an API hiccup (including a hang) must never lock everyone out
     try {
       const res = await fetch(`${API_URL}/onboarding/meu-status`, {
         headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(3000),
       });
       if (res.ok) {
         unlocked = ((await res.json()) as { unlocked: boolean }).unlocked;
       }
     } catch {
-      // network error reaching the API — stay fail-open
+      // network error, non-2xx already handled above, or the 3s timeout fired — stay fail-open
     }
 
     if (!unlocked) {
