@@ -51,39 +51,39 @@ model Employee {
   userId            String    @id
   name              String
   role              String
-  cargo             String?   // função técnica, ex: "desenvolvedor" — ver CARGOS em shared-types
-  team              String?   // time/squad, ex: "SGN360" — texto livre, sem lista fixa
-  nivel             String?   // "junior" | "pleno" | "senior" | "especialista"
-  convencaoId       String?   // id de ConvencaoColetiva, sem FK — resolvido na camada de serviço
-  salarioMensal     Float?    // R$, mesma visibilidade de cpf/rg (RH e gestor)
+  cargo             String? // função técnica, ex: "desenvolvedor" — ver CARGOS em shared-types
+  team              String? // time/squad, ex: "SGN360" — texto livre, sem lista fixa
+  nivel             String? // "junior" | "pleno" | "senior" | "especialista"
+  convencaoId       String? // id de ConvencaoColetiva, sem FK — resolvido na camada de serviço
+  salarioMensal     Float? // R$, mesma visibilidade de cpf/rg (RH e gestor)
   hireDate          DateTime
-  expectedStartTime String?   // "HH:mm", 24h, América/São_Paulo. null = never "atrasado".
+  expectedStartTime String? // "HH:mm", 24h, América/São_Paulo. null = never "atrasado".
   cpf               String?   @unique // 11 dígitos, sem pontuação
   rg                String?
   dataNascimento    DateTime?
-  estadoCivil       String?   // "solteiro" | "casado" | "divorciado" | "viuvo" | "uniao_estavel"
+  estadoCivil       String? // "solteiro" | "casado" | "divorciado" | "viuvo" | "uniao_estavel"
   enderecoRua       String?
   enderecoNumero    String?
   enderecoBairro    String?
   enderecoCidade    String?
-  enderecoEstado    String?   // UF, 2 letras
-  enderecoCep       String?   // 8 dígitos, sem hífen
+  enderecoEstado    String? // UF, 2 letras
+  enderecoCep       String? // 8 dígitos, sem hífen
   deletedAt         DateTime? // null = ativo. Não-nulo = na lixeira.
   email             String?   @unique // login por senha; opcional pra não quebrar quem só usa SSO
-  phone             String?   // canal alternativo de identificação na recuperação de senha
-  passwordHash      String?   // bcrypt; null = login por senha desabilitado pra este usuário
+  phone             String? // canal alternativo de identificação na recuperação de senha
+  passwordHash      String? // bcrypt; null = login por senha desabilitado pra este usuário
 }
 
 model Notification {
   id        String    @id @default(uuid())
   userId    String
-  type      String    // "pagamento" for now — a free string (not a Prisma enum) so a
-                       // future notification producer (e.g. missed-punch detection)
-                       // can reuse this table without a new migration.
-  category  String?   // only set when type === "pagamento": one of PAGAMENTO_CATEGORIAS
-  message   String    // final display text, generated server-side at send time
-  link      String?   // optional deep-link target for a notification bell to navigate to;
-                       // unused by this plan's own sendPagamento — reserved for future producers
+  type      String // "pagamento" for now — a free string (not a Prisma enum) so a
+  // future notification producer (e.g. missed-punch detection)
+  // can reuse this table without a new migration.
+  category  String? // only set when type === "pagamento": one of PAGAMENTO_CATEGORIAS
+  message   String // final display text, generated server-side at send time
+  link      String? // optional deep-link target for a notification bell to navigate to;
+  // unused by this plan's own sendPagamento — reserved for future producers
   createdAt DateTime  @default(now())
   readAt    DateTime? // null = unread
 }
@@ -103,9 +103,9 @@ model PasswordResetCode {
 model JornadaAlert {
   id           String   @id @default(uuid())
   userId       String
-  type         String   // "intrajornada" | "interjornada"
+  type         String // "intrajornada" | "interjornada"
   date         DateTime // dia (São Paulo, meia-noite UTC) a que a violação se refere
-  minutesShort Int      // quantos minutos faltaram pro mínimo exigido
+  minutesShort Int // quantos minutos faltaram pro mínimo exigido
   createdAt    DateTime @default(now())
 }
 
@@ -114,8 +114,8 @@ model ConvencaoColetiva {
   nome                 String
   cnpj                 String?
   categoriaSindical    String?
-  expectedDailyMinutes Int      // jornada esperada por dia, em minutos (ex: 480 = 8h)
-  overtimePercent      Float    // percentual de acréscimo da hora extra, ex: 50 = 50%
+  expectedDailyMinutes Int // jornada esperada por dia, em minutos (ex: 480 = 8h)
+  overtimePercent      Float // percentual de acréscimo da hora extra, ex: 50 = 50%
   createdAt            DateTime @default(now())
 }
 
@@ -131,17 +131,17 @@ model VacationHistoryEntry {
 // --- Atestados -------------------------------------------------------------
 
 model Atestado {
-  id            String   @id @default(uuid())
-  userId        String
-  userName      String
-  cid           String?
-  crm           String?
-  medico        String?
-  dias          Int?
-  photoDataUrl  String?
-  status        String   @default("enviado")
-  reviewNote    String?
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid())
+  userId       String
+  userName     String
+  cid          String?
+  crm          String?
+  medico       String?
+  dias         Int?
+  photoDataUrl String?
+  status       String   @default("enviado")
+  reviewNote   String?
+  createdAt    DateTime @default(now())
 }
 
 // --- Documentos --------------------------------------------------------
@@ -178,6 +178,16 @@ model AdmissionDocument {
   submittedAt DateTime @default(now())
 
   @@unique([userId, kind])
+}
+
+// One signed contract per colaborador — resubmitting replaces the previous
+// file (see DocumentosService.submitSignedContract), no review/approval
+// status: existing just means "gestor/rh can see it", not "accepted".
+model SignedContract {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  fileDataUrl String
+  submittedAt DateTime @default(now())
 }
 
 // No payroll backend exists — seeded illustrative payslips per user, served
@@ -239,14 +249,16 @@ model Partner {
 }
 
 model OnboardingTask {
-  id             String  @id @default(uuid())
-  icon           String
-  title          String
-  description    String
-  order          Int
-  requiresUpload Boolean @default(false)
-  requiresVideo  Boolean @default(false) // today, always "Assistir ao vídeo de boas-vindas" — same one-flagged-task convention as requiresUpload
-  showsTeam      Boolean @default(false) // today, always "Conhecer o time" — same one-flagged-task convention as requiresUpload
+  id                      String  @id @default(uuid())
+  icon                    String
+  title                   String
+  description             String
+  order                   Int
+  requiresUpload          Boolean @default(false)
+  requiresVideo           Boolean @default(false) // today, always "Assistir ao vídeo de boas-vindas" — same one-flagged-task convention as requiresUpload
+  showsTeam               Boolean @default(false) // today, always "Conhecer o time" — same one-flagged-task convention as requiresUpload
+  requiresContract        Boolean @default(false) // today, always "Assinar o contrato" — same one-flagged-task convention as requiresUpload
+  requiresAccessChecklist Boolean @default(false) // today, always "Configurar seus acessos" — same one-flagged-task convention as requiresUpload
 }
 
 model OnboardingProgress {
@@ -256,6 +268,32 @@ model OnboardingProgress {
   completedAt DateTime @default(now())
 
   @@unique([userId, taskId])
+}
+
+// One row per (colaborador, item) marking a single access (SGN Portal,
+// Movidesk, ...) as configured — see ONBOARDING_ACCESS_ITEMS in shared-types
+// for the fixed list. Mirrors OnboardingProgress's shape/toggle semantics,
+// just keyed by a fixed item string instead of a taskId: the
+// requiresAccessChecklist task's own completion is derived from "all fixed
+// items present for this user", not stored directly (same
+// derive-from-related-data pattern as requiresUpload/AdmissionDocument).
+model OnboardingAccessItem {
+  id          String   @id @default(uuid())
+  userId      String
+  itemKey     String
+  completedAt DateTime @default(now())
+
+  @@unique([userId, itemKey])
+}
+
+// A manual, one-time action gestor/rh takes after every onboarding task is
+// done — distinct from the tasks themselves, which the colaborador drives.
+// Presence of a row (not a boolean) is the "granted" signal, same as
+// SignedContract's presence-means-submitted shape.
+model OnboardingAccessGrant {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  grantedAt DateTime @default(now())
 }
 
 // --- Operacional / TI --------------------------------------------------
@@ -297,8 +335,8 @@ model PushToken {
 
 model CareerGoal {
   id          String    @id @default(uuid())
-  userId      String    // colaborador dono da meta
-  tipo        String    // "pdi" | "entrega"
+  userId      String // colaborador dono da meta
+  tipo        String // "pdi" | "entrega"
   title       String
   description String?
   dueDate     DateTime?
@@ -333,8 +371,8 @@ model NineBoxPlacement {
   id         String   @id @default(uuid())
   userId     String
   gestorId   String
-  desempenho String   // "baixo" | "medio" | "alto"
-  potencial  String   // "baixo" | "medio" | "alto"
+  desempenho String // "baixo" | "medio" | "alto"
+  potencial  String // "baixo" | "medio" | "alto"
   date       DateTime @default(now())
   createdAt  DateTime @default(now())
 }
@@ -361,10 +399,10 @@ model CareerEvaluation {
   id            String    @id @default(uuid())
   userId        String
   evaluatorId   String
-  nivelAvaliado String    // nivel do colaborador no momento da avaliação
-  proximoNivel  String?   // próximo nível da escada nesse momento; null se já no topo
+  nivelAvaliado String // nivel do colaborador no momento da avaliação
+  proximoNivel  String? // próximo nível da escada nesse momento; null se já no topo
   status        String    @default("salva") // "salva" | "decidida"
-  resultado     String?   // "promovido" | "em_desenvolvimento" — setado só quando status = "decidida"
+  resultado     String? // "promovido" | "em_desenvolvimento" — setado só quando status = "decidida"
   mediaGeral    Float?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -374,24 +412,24 @@ model CareerEvaluation {
 model CareerPrincipioScore {
   id            String  @id @default(uuid())
   evaluationId  String
-  principio     String  // "clareza" | "meritocracia" | "equilibrio" | "transparencia" | "desenvolvimento"
-  nota          Int     // 0-10
+  principio     String // "clareza" | "meritocracia" | "equilibrio" | "transparencia" | "desenvolvimento"
+  nota          Int // 0-10
   justificativa String?
 }
 
 model CareerCompetenciaScore {
   id            String  @id @default(uuid())
   evaluationId  String
-  categoria     String  // "hard" | "soft"
-  competencia   String  // ver COMPETENCIA_KEYS em shared-types
-  nota          Int     // 0-10
+  categoria     String // "hard" | "soft"
+  competencia   String // ver COMPETENCIA_KEYS em shared-types
+  nota          Int // 0-10
   justificativa String?
 }
 
 model CareerRequisitoCheck {
   id           String  @id @default(uuid())
   evaluationId String
-  tipo         String  // "obrigatorio" | "eletivo"
+  tipo         String // "obrigatorio" | "eletivo"
   label        String
   atendido     Boolean @default(false)
 }
@@ -402,10 +440,10 @@ model CareerRequisitoCheck {
 // BancoDeHorasService (see HorasService.resumo/list), not stored here.
 model WorkedHoursEntry {
   id           String   @id @default(uuid())
-  userId       String   // colaborador a quem o lançamento se refere
-  gestorId     String   // gestor que lançou — sempre da sessão autenticada, nunca do body
+  userId       String // colaborador a quem o lançamento se refere
+  gestorId     String // gestor que lançou — sempre da sessão autenticada, nunca do body
   date         DateTime // dia do lançamento, data-only (meia-noite UTC) — mesma convenção de VacationRequest.startDate
-  horasTickets Float    // horas lançadas em tickets na ferramenta interna (hoje: Movidesk, conferido manualmente)
+  horasTickets Float // horas lançadas em tickets na ferramenta interna (hoje: Movidesk, conferido manualmente)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

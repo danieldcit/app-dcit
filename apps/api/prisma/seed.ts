@@ -247,6 +247,14 @@ async function seedOnboarding() {
     where: { title: 'Conhecer o time' },
     data: { showsTeam: true },
   });
+  await prisma.onboardingTask.updateMany({
+    where: { title: 'Assinar o contrato' },
+    data: { requiresContract: true },
+  });
+  await prisma.onboardingTask.updateMany({
+    where: { title: 'Configurar seus acessos' },
+    data: { requiresAccessChecklist: true },
+  });
 
   const existing = await prisma.onboardingTask.findFirst();
   if (existing) return;
@@ -258,6 +266,7 @@ async function seedOnboarding() {
         title: 'Assinar o contrato',
         description: 'Revise e assine seu contrato de trabalho digitalmente.',
         order: 1,
+        requiresContract: true,
       },
       {
         icon: 'cloud-upload-outline',
@@ -285,6 +294,7 @@ async function seedOnboarding() {
         title: 'Configurar seus acessos',
         description: 'E-mail corporativo, ferramentas internas e este app.',
         order: 5,
+        requiresAccessChecklist: true,
       },
     ],
   });
