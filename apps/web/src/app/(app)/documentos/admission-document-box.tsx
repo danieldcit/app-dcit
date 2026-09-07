@@ -19,6 +19,16 @@ const STATUS_LABEL: Record<DocStatus, string> = {
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTOS = 3;
 
+// Purely a display label for the file input — upload behavior (still up to
+// MAX_PHOTOS files accepted) is unchanged for every kind. RG and CPF get a
+// descriptive label; the other kinds (comprovante de endereço, certidões)
+// show no photo-count caption at all, since "(até 3)" read as misleading
+// for a document that's really just one photo.
+const PHOTO_FIELD_LABEL: Partial<Record<string, string>> = {
+  rg: "Fotos (Frente e Verso)",
+  cpf: "Foto (Frente)",
+};
+
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -114,7 +124,7 @@ export function AdmissionDocumentBox({
 
       <form className={styles.form} onSubmit={handleSubmit}>
         <div className={styles.photoField}>
-          <label htmlFor={`${kind}-photos-input`}>Fotos (até 3)</label>
+          {PHOTO_FIELD_LABEL[kind] ? <label htmlFor={`${kind}-photos-input`}>{PHOTO_FIELD_LABEL[kind]}</label> : null}
           <input
             key={resetToken}
             id={`${kind}-photos-input`}
@@ -123,6 +133,7 @@ export function AdmissionDocumentBox({
             accept={ACCEPTED_TYPES.join(",")}
             multiple
             required
+            aria-label={PHOTO_FIELD_LABEL[kind] ?? `Foto de ${label}`}
             onChange={handleFilesChange}
             className={styles.fileInput}
           />
@@ -142,9 +153,14 @@ export function AdmissionDocumentBox({
         {status === "error" ? <p className={styles.error}>{error}</p> : null}
         {status === "success" ? <p className={styles.success}>Documento enviado com sucesso!</p> : null}
 
-        <button type="submit" className={styles.submitButton} disabled={status === "pending"}>
-          {status === "pending" ? "Enviando…" : existing ? "Reenviar" : "Enviar"}
-        </button>
+        <div className={styles.submitRow}>
+          <button type="submit" className={styles.submitButton} disabled={status === "pending"}>
+            {status === "pending" ? "Enviando…" : existing ? "Reenviar" : "Enviar"}
+          </button>
+          {existing && (existing.status === "enviado" || existing.status === "em_analise") ? (
+            <span className={styles.pendingBadge}>Em análise</span>
+          ) : null}
+        </div>
       </form>
     </div>
   );

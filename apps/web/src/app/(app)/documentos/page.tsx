@@ -11,6 +11,7 @@ import { AdmissionDocumentPhotoButton } from "./admission-document-photo-button"
 import { AtestadoForm } from "./atestado-form";
 import { AtestadoPhotoButton } from "./atestado-photo-button";
 import styles from "./documentos.module.css";
+import { MeusAtestadosList } from "./meus-atestados-list";
 
 type DocumentStatus = "enviado" | "em_analise" | "aprovado" | "recusado";
 
@@ -394,30 +395,7 @@ function AtestadosSection({ atestados }: { atestados: AtestadoRecord[] }) {
       {atestados.length === 0 ? (
         <p className={styles.sectionEmpty}>Nenhum atestado enviado ainda.</p>
       ) : (
-        <ul className={styles.list}>
-          {atestados.map((atestado) => (
-            <li key={atestado.id} className={styles.item}>
-              <div className={styles.itemHeader}>
-                <div className={styles.itemInfo}>
-                  <span className={styles.itemName}>
-                    {atestado.dias != null ? `${atestado.dias} dia(s)` : "Dias não informados"}
-                  </span>
-                  <span className={styles.itemDetail}>Enviado em {formatDate(atestado.createdAt)}</span>
-                  {atestado.reviewNote ? (
-                    <span className={styles.itemNote}>{atestado.reviewNote}</span>
-                  ) : null}
-                </div>
-                <span
-                  className={`${styles.status} ${
-                    atestado.status === "aprovado" ? styles.statusAprovado : ""
-                  }`}
-                >
-                  {STATUS_LABEL[atestado.status]}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <MeusAtestadosList atestados={atestados} />
       )}
     </div>
   );
