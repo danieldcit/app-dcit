@@ -9,6 +9,11 @@ jest.mock("@/lib/push", () => ({
   addNotificationTapListener: jest.fn().mockReturnValue(() => {}),
 }));
 
+jest.mock("react-native-webview", () => {
+  const { View } = require("react-native");
+  return { WebView: (props: Record<string, unknown>) => <View testID="welcome-video-webview" {...props} /> };
+});
+
 function fakeJwt(claims: Record<string, unknown>) {
   const BASE64URL_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
   function encode(value: string) {
