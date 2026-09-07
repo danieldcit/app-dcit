@@ -102,6 +102,31 @@ export class OnboardingService {
     return { grantedAt: grant.grantedAt };
   }
 
+  // Called after any mutation that could complete the track (the two
+  // toggles below, plus DocumentosService's admission-document and
+  // signed-contract writes — see Task 6). Idempotent: does nothing if a
+  // grant already exists (auto or manual) or the track isn't complete yet.
+  async checkAutoUnlock(userId: string): Promise<void> {
+    const { tasks, completedTaskIds } = await this.getTasks(userId);
+    if (tasks.length === 0 || completedTaskIds.length < tasks.length) return;
+
+    const existing = await this.prisma.onboardingAccessGrant.findUnique({ where: { userId } });
+    if (existing) return;
+
+    await this.prisma.onboardingAccessGrant.create({ data: { userId, source: 'auto' } });
+    await this.notifications.sendFullAccessGranted(userId);
+  }
+
+  // Checks both signals rather than trusting the grant row alone — same
+  // defensive-derivation spirit as mergeDerivedCompletion treating
+  // completion as a fact to recompute, not just stored state.
+  async isUnlocked(userId: string): Promise<boolean> {
+    const grant = await this.prisma.onboardingAccessGrant.findUnique({ where: { userId } });
+    if (grant) return true;
+    const { tasks, completedTaskIds } = await this.getTasks(userId);
+    return tasks.length > 0 && completedTaskIds.length === tasks.length;
+  }
+
   // Two tasks are never toggled by hand, derived instead — both require
   // *every* fixed item to be present, not just one:
   // - requiresUpload ("Enviar documentos"): all 5 ADMISSION_DOCUMENT_KINDS
@@ -164,6 +189,7 @@ export class OnboardingService {
     if (task) {
       await this.notifications.sendOnboardingTaskCompleted(task.title, userId, userName);
     }
+    await this.checkAutoUnlock(userId);
     return { completed: true };
   }
 
@@ -183,6 +209,7 @@ export class OnboardingService {
     }
 
     await this.prisma.onboardingAccessItem.create({ data: { userId, itemKey } });
+    await this.checkAutoUnlock(userId);
     return { completed: true };
   }
 }
