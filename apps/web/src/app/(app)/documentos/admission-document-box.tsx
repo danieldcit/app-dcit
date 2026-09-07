@@ -16,6 +16,13 @@ const STATUS_LABEL: Record<DocStatus, string> = {
   recusado: "Reprovado",
 };
 
+// Green for aprovado, red for recusado — enviado/em_analise fall back to
+// styles.status's own default (yellow), so no entry needed for them here.
+const STATUS_CLASS: Partial<Record<DocStatus, string>> = {
+  aprovado: styles.statusAprovado,
+  recusado: styles.statusReprovado,
+};
+
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTOS = 3;
 
@@ -114,9 +121,7 @@ export function AdmissionDocumentBox({
           {existing?.reviewNote ? <span className={styles.itemNote}>{existing.reviewNote}</span> : null}
         </div>
         {existing ? (
-          <span
-            className={`${styles.status} ${existing.status === "aprovado" ? styles.statusAprovado : ""}`}
-          >
+          <span className={`${styles.status} ${STATUS_CLASS[existing.status] ?? ""}`}>
             {STATUS_LABEL[existing.status]}
           </span>
         ) : null}

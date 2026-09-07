@@ -62,12 +62,21 @@ async function MinhasHoleritesView() {
           const liquido = holerite.gross - holerite.inss - holerite.irrf - holerite.benefits;
           return (
             <li key={holerite.id} className={styles.item}>
-              <span className={styles.itemName}>{holerite.label}</span>
-              <span className={styles.itemDetail}>
-                Bruto: {formatBRL(holerite.gross)} · INSS: {formatBRL(holerite.inss)} · IRRF:{" "}
-                {formatBRL(holerite.irrf)} · Descontos de benefícios: {formatBRL(holerite.benefits)} ·
-                Líquido: {formatBRL(liquido)}
-              </span>
+              <div className={styles.itemInfo}>
+                <span className={styles.itemName}>{holerite.label}</span>
+                <span className={styles.itemDetail}>
+                  Bruto: {formatBRL(holerite.gross)} · INSS: {formatBRL(holerite.inss)} · IRRF:{" "}
+                  {formatBRL(holerite.irrf)} · Descontos de benefícios: {formatBRL(holerite.benefits)} ·
+                  Líquido: {formatBRL(liquido)}
+                </span>
+              </div>
+              <a
+                href={`/api/documentos/holerites/${holerite.id}/arquivo`}
+                download
+                className={styles.downloadLink}
+              >
+                Baixar PDF
+              </a>
             </li>
           );
         })}

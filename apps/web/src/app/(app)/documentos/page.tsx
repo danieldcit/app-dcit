@@ -10,6 +10,7 @@ import { AdmissionDocumentBox } from "./admission-document-box";
 import { AdmissionDocumentPhotoButton } from "./admission-document-photo-button";
 import { AtestadoForm } from "./atestado-form";
 import { AtestadoPhotoButton } from "./atestado-photo-button";
+import { ContractBox } from "./contract-box";
 import styles from "./documentos.module.css";
 import { MeusAtestadosList } from "./meus-atestados-list";
 
@@ -20,6 +21,13 @@ const STATUS_LABEL: Record<DocumentStatus, string> = {
   em_analise: "Em análise",
   aprovado: "Aprovado",
   recusado: "Reprovado",
+};
+
+// Green for aprovado, red for recusado — enviado/em_analise fall back to
+// styles.status's own default (yellow), so no entry needed for them here.
+const STATUS_CLASS: Partial<Record<DocumentStatus, string>> = {
+  aprovado: styles.statusAprovado,
+  recusado: styles.statusReprovado,
 };
 
 type Atestado = {
@@ -108,14 +116,26 @@ export default async function DocumentosPage({
   return <TeamView session={session} />;
 }
 
+type SignedContractStatus = {
+  userId: string;
+  userName: string;
+  submittedAt: string | null;
+};
+
 async function TeamView({ session }: { session: Session }) {
-  const [atestados, admissionDocuments, certifications] = await Promise.all([
+  const [atestados, admissionDocuments, certifications, signedContracts] = await Promise.all([
     apiFetchJson<Atestado[]>("/atestados/team"),
     apiFetchJson<AdmissionDocument[]>("/documentos/admissionais/equipe"),
     apiFetchJson<CertificationDoc[]>("/documentos/certificacoes/equipe"),
+    apiFetchJson<SignedContractStatus[]>("/documentos/contrato/equipe"),
   ]);
 
-  if (atestados.length === 0 && admissionDocuments.length === 0 && certifications.length === 0) {
+  if (
+    atestados.length === 0 &&
+    admissionDocuments.length === 0 &&
+    certifications.length === 0 &&
+    signedContracts.length === 0
+  ) {
     return (
       <EmptyState
         title="Documentos e atestados"
@@ -127,6 +147,38 @@ async function TeamView({ session }: { session: Session }) {
   return (
     <div className={styles.page}>
       <h1 className={styles.heading}>Documentos e atestados</h1>
+
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Contratos assinados</h2>
+        {signedContracts.length === 0 ? (
+          <p className={styles.sectionEmpty}>Nenhum colaborador ativo.</p>
+        ) : (
+          <ul className={styles.list}>
+            {signedContracts.map((contract) => (
+              <li key={contract.userId} className={styles.item}>
+                <div className={styles.itemHeader}>
+                  <div className={styles.itemInfo}>
+                    <span className={styles.itemName}>{contract.userName}</span>
+                    <span className={styles.itemDetail}>
+                      {contract.submittedAt
+                        ? `Enviado em ${formatDateTime(contract.submittedAt)}`
+                        : "Nenhum contrato assinado enviado ainda."}
+                    </span>
+                  </div>
+                  {contract.submittedAt ? (
+                    <a
+                      href={`/api/documentos/contrato/${contract.userId}/arquivo`}
+                      className={styles.contractDownloadLink}
+                    >
+                      Baixar
+                    </a>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Atestados</h2>
@@ -157,11 +209,7 @@ async function TeamView({ session }: { session: Session }) {
                               · enviado em {formatDateTime(atestado.createdAt)}
                             </span>
                           </div>
-                          <span
-                            className={`${styles.status} ${
-                              atestado.status === "aprovado" ? styles.statusAprovado : ""
-                            }`}
-                          >
+                          <span className={`${styles.status} ${STATUS_CLASS[atestado.status] ?? ""}`}>
                             {STATUS_LABEL[atestado.status]}
                           </span>
                         </div>
@@ -218,7 +266,9 @@ async function TeamView({ session }: { session: Session }) {
                             {document.title} · enviado em {formatDateTime(document.submittedAt)}
                           </span>
                         </div>
-                        <span className={styles.status}>{STATUS_LABEL[document.status]}</span>
+                        <span className={`${styles.status} ${STATUS_CLASS[document.status] ?? ""}`}>
+                          {STATUS_LABEL[document.status]}
+                        </span>
                       </div>
                       <AdmissionDocumentPhotoButton id={document.id} status={document.status} />
                     </li>
@@ -265,16 +315,17 @@ async function TeamView({ session }: { session: Session }) {
   );
 }
 
-type Categoria = "admissionais" | "atestados" | "certificacoes";
+type Categoria = "admissionais" | "atestados" | "certificacoes" | "contrato";
 
 const CATEGORIA_LABEL: Record<Categoria, string> = {
   admissionais: "Admissionais",
   atestados: "Atestados",
   certificacoes: "Certificações",
+  contrato: "Contrato",
 };
 
 function resolveCategoria(value: string | undefined): Categoria {
-  return value === "admissionais" || value === "certificacoes" ? value : "atestados";
+  return value === "admissionais" || value === "certificacoes" || value === "contrato" ? value : "atestados";
 }
 
 type AdmissionDocumentRecord = {
@@ -312,10 +363,11 @@ async function ColaboradorView({
   const params = await searchParams;
   const categoria = resolveCategoria(typeof params.categoria === "string" ? params.categoria : undefined);
 
-  const [admissionDocuments, certifications, atestados] = await Promise.all([
+  const [admissionDocuments, certifications, atestados, signedContract] = await Promise.all([
     apiFetchJson<AdmissionDocumentRecord[]>("/documentos/admissionais"),
     apiFetchJson<CertificationRecord[]>("/documentos/certificacoes"),
     apiFetchJson<AtestadoRecord[]>("/atestados/mine"),
+    apiFetchJson<{ submittedAt: string | null }>("/documentos/contrato"),
   ]);
 
   return (
@@ -323,7 +375,7 @@ async function ColaboradorView({
       <h1 className={styles.heading}>Documentos</h1>
 
       <div className={styles.categoryTabs}>
-        {(["admissionais", "atestados", "certificacoes"] as const).map((option) => (
+        {(["admissionais", "atestados", "certificacoes", "contrato"] as const).map((option) => (
           <a
             key={option}
             className={
@@ -345,6 +397,18 @@ async function ColaboradorView({
       {categoria === "certificacoes" ? (
         <CertificacoesSection certifications={certifications} />
       ) : null}
+      {categoria === "contrato" ? <ContratoSection signedContract={signedContract} /> : null}
+    </div>
+  );
+}
+
+function ContratoSection({ signedContract }: { signedContract: { submittedAt: string | null } }) {
+  return (
+    <div className={styles.section}>
+      <h2 className={styles.sectionTitle}>Contrato de trabalho</h2>
+      <ContractBox
+        existing={signedContract.submittedAt ? { submittedAtLabel: formatDate(signedContract.submittedAt) } : null}
+      />
     </div>
   );
 }

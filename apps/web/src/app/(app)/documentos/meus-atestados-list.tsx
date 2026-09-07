@@ -13,6 +13,13 @@ const STATUS_LABEL: Record<DocumentStatus, string> = {
   recusado: "Reprovado",
 };
 
+// Green for aprovado, red for recusado — enviado/em_analise fall back to
+// styles.status's own default (yellow), so no entry needed for them here.
+const STATUS_CLASS: Partial<Record<DocumentStatus, string>> = {
+  aprovado: styles.statusAprovado,
+  recusado: styles.statusReprovado,
+};
+
 // Duplicated from page.tsx (this codebase's convention: small date helpers
 // are duplicated per-file rather than shared — see horas/actions.ts).
 function formatDate(value: string): string {
@@ -51,7 +58,7 @@ export function MeusAtestadosList({ atestados }: { atestados: AtestadoRecord[] }
                 <span className={styles.itemDetail}>Enviado em {formatDate(atestado.createdAt)}</span>
                 {atestado.reviewNote ? <span className={styles.itemNote}>{atestado.reviewNote}</span> : null}
               </div>
-              <span className={`${styles.status} ${atestado.status === "aprovado" ? styles.statusAprovado : ""}`}>
+              <span className={`${styles.status} ${STATUS_CLASS[atestado.status] ?? ""}`}>
                 {STATUS_LABEL[atestado.status]}
               </span>
             </div>
