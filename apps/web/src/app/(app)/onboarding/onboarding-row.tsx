@@ -19,10 +19,21 @@ type TeamProgress = {
   tasks: Task[];
   completedTaskIds: string[];
   fullAccessGrantedAt: string | null;
+  fullAccessGrantSource: string | null;
+  fullAccessGrantedByName: string | null;
 };
+
+function grantLabel(entry: TeamProgress): string {
+  if (!entry.fullAccessGrantedAt) return "Liberar acesso total ao SGP Portal";
+  if (entry.fullAccessGrantSource === "manual") {
+    return `Liberado manualmente por ${entry.fullAccessGrantedByName}`;
+  }
+  return "Acesso liberado automaticamente";
+}
 
 export function OnboardingRow({ entry }: { entry: TeamProgress }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const confirmDialogRef = useRef<HTMLDialogElement>(null);
   const [granting, setGranting] = useState(false);
   const percent =
     entry.totalCount === 0 ? 0 : Math.round((entry.completedCount / entry.totalCount) * 100);
@@ -35,6 +46,7 @@ export function OnboardingRow({ entry }: { entry: TeamProgress }) {
       await grantOnboardingFullAccess(entry.userId);
     } finally {
       setGranting(false);
+      confirmDialogRef.current?.close();
     }
   }
 
@@ -82,10 +94,10 @@ export function OnboardingRow({ entry }: { entry: TeamProgress }) {
         <button
           type="button"
           className={styles.grantAccessButton}
-          disabled={!complete || granting || Boolean(entry.fullAccessGrantedAt)}
-          onClick={handleGrantFullAccess}
+          disabled={granting || Boolean(entry.fullAccessGrantedAt)}
+          onClick={() => confirmDialogRef.current?.showModal()}
         >
-          {entry.fullAccessGrantedAt ? "Acesso liberado" : "Liberar acesso total ao SGP Portal"}
+          {grantLabel(entry)}
         </button>
         <div className={styles.dialogActions}>
           <button
@@ -94,6 +106,32 @@ export function OnboardingRow({ entry }: { entry: TeamProgress }) {
             onClick={() => dialogRef.current?.close()}
           >
             Fechar
+          </button>
+        </div>
+      </dialog>
+
+      <dialog ref={confirmDialogRef} className={styles.dialog}>
+        <p className={styles.dialogTitle}>Liberar acesso total ao SGP Portal para {entry.userName}?</p>
+        <p className={styles.itemDetail}>
+          {entry.userName} ainda não completou o onboarding ({entry.completedCount} de{" "}
+          {entry.totalCount}). Essa é uma exceção manual — o colaborador ganha acesso completo ao
+          portal mesmo assim.
+        </p>
+        <div className={styles.dialogActions}>
+          <button
+            type="button"
+            className={styles.dialogClose}
+            onClick={() => confirmDialogRef.current?.close()}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className={styles.grantAccessButton}
+            disabled={granting}
+            onClick={handleGrantFullAccess}
+          >
+            Confirmar liberação
           </button>
         </div>
       </dialog>

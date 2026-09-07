@@ -28,6 +28,8 @@ test("shows each employee's onboarding progress for a gestor", async ({
         tasks: GESTOR_VIEW_TASKS,
         completedTaskIds: ["task-1"],
         fullAccessGrantedAt: null,
+        fullAccessGrantSource: null,
+        fullAccessGrantedByName: null,
       },
       {
         userId: "user-2",
@@ -37,6 +39,8 @@ test("shows each employee's onboarding progress for a gestor", async ({
         tasks: GESTOR_VIEW_TASKS,
         completedTaskIds: ["task-1", "task-2"],
         fullAccessGrantedAt: null,
+        fullAccessGrantSource: null,
+        fullAccessGrantedByName: null,
       },
     ],
   });
@@ -64,6 +68,8 @@ test("clicking an employee opens the task list with done/pending status", async 
         tasks: GESTOR_VIEW_TASKS,
         completedTaskIds: ["task-1"],
         fullAccessGrantedAt: null,
+        fullAccessGrantSource: null,
+        fullAccessGrantedByName: null,
       },
     ],
   });
@@ -78,7 +84,7 @@ test("clicking an employee opens the task list with done/pending status", async 
   await expect(pendingTask.getByText("Pendente")).toBeVisible();
 });
 
-test("the 'Liberar acesso total ao SGP Portal' button is disabled while tasks are pending", async ({
+test("the 'Liberar acesso total ao SGP Portal' button is clickable even with pending tasks, and asks for confirmation", async ({
   page,
   context,
   request,
@@ -94,41 +100,15 @@ test("the 'Liberar acesso total ao SGP Portal' button is disabled while tasks ar
         tasks: GESTOR_VIEW_TASKS,
         completedTaskIds: ["task-1"],
         fullAccessGrantedAt: null,
-      },
-    ],
-  });
-
-  await page.goto("/onboarding");
-  await page.getByRole("button", { name: /Diana Colaboradora/ }).click();
-
-  await expect(
-    page.getByRole("button", { name: "Liberar acesso total ao SGP Portal" }),
-  ).toBeDisabled();
-});
-
-test("the 'Liberar acesso total ao SGP Portal' button is enabled once every task is done, and calls the API", async ({
-  page,
-  context,
-  request,
-}) => {
-  await addSessionCookie(context);
-  await mockApi(request, {
-    onboardingProgress: [
-      {
-        userId: "user-1",
-        userName: "Diana Colaboradora",
-        completedCount: 2,
-        totalCount: 2,
-        tasks: GESTOR_VIEW_TASKS,
-        completedTaskIds: ["task-1", "task-2"],
-        fullAccessGrantedAt: null,
+        fullAccessGrantSource: null,
+        fullAccessGrantedByName: null,
       },
     ],
   });
   await seedResponse(request, {
     method: "POST",
     path: "/onboarding/equipe/user-1/liberar-acesso",
-    response: { grantedAt: "2026-09-07T12:00:00.000Z" },
+    response: { grantedAt: "2026-09-07T12:00:00.000Z", source: "manual", grantedByName: "Bruno Gestor" },
   });
 
   await page.goto("/onboarding");
@@ -137,6 +117,9 @@ test("the 'Liberar acesso total ao SGP Portal' button is enabled once every task
   const grantButton = page.getByRole("button", { name: "Liberar acesso total ao SGP Portal" });
   await expect(grantButton).toBeEnabled();
   await grantButton.click();
+
+  await expect(page.getByText(/ainda não completou o onboarding/)).toBeVisible();
+  await page.getByRole("button", { name: "Confirmar liberação" }).click();
 
   await expect
     .poll(async () => {
@@ -148,7 +131,7 @@ test("the 'Liberar acesso total ao SGP Portal' button is enabled once every task
     .toBe(true);
 });
 
-test("shows 'Acesso liberado' (disabled) once full access has already been granted", async ({
+test("shows the grant origin once full access has already been granted, and the button is gone", async ({
   page,
   context,
   request,
@@ -164,6 +147,8 @@ test("shows 'Acesso liberado' (disabled) once full access has already been grant
         tasks: GESTOR_VIEW_TASKS,
         completedTaskIds: ["task-1", "task-2"],
         fullAccessGrantedAt: "2026-09-06T12:00:00.000Z",
+        fullAccessGrantSource: "auto",
+        fullAccessGrantedByName: null,
       },
     ],
   });
@@ -171,7 +156,31 @@ test("shows 'Acesso liberado' (disabled) once full access has already been grant
   await page.goto("/onboarding");
   await page.getByRole("button", { name: /Diana Colaboradora/ }).click();
 
-  await expect(page.getByRole("button", { name: "Acesso liberado" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Acesso liberado automaticamente" })).toBeDisabled();
+});
+
+test("shows who manually granted early access", async ({ page, context, request }) => {
+  await addSessionCookie(context);
+  await mockApi(request, {
+    onboardingProgress: [
+      {
+        userId: "user-1",
+        userName: "Diana Colaboradora",
+        completedCount: 1,
+        totalCount: 2,
+        tasks: GESTOR_VIEW_TASKS,
+        completedTaskIds: ["task-1"],
+        fullAccessGrantedAt: "2026-09-06T12:00:00.000Z",
+        fullAccessGrantSource: "manual",
+        fullAccessGrantedByName: "Carla RH",
+      },
+    ],
+  });
+
+  await page.goto("/onboarding");
+  await page.getByRole("button", { name: /Diana Colaboradora/ }).click();
+
+  await expect(page.getByRole("button", { name: "Liberado manualmente por Carla RH" })).toBeDisabled();
 });
 
 test("colaborador sees the onboarding checklist with a progress bar", async ({ page, context, request }) => {

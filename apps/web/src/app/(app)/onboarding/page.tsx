@@ -25,6 +25,8 @@ type TeamProgress = {
   tasks: Task[];
   completedTaskIds: string[];
   fullAccessGrantedAt: string | null;
+  fullAccessGrantSource: string | null;
+  fullAccessGrantedByName: string | null;
 };
 
 type AdmissionDocumentRecord = {
