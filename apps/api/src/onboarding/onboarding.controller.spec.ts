@@ -84,7 +84,7 @@ describe('OnboardingController', () => {
 
     await controller.toggleTask('task-1', requestAs('user-1'));
 
-    expect(serviceMock.toggleTask).toHaveBeenCalledWith('user-1', 'task-1');
+    expect(serviceMock.toggleTask).toHaveBeenCalledWith('user-1', 'task-1', 'Test User');
   });
 
   it('lists onboarding progress across the team', async () => {

@@ -11,6 +11,8 @@ type Task = {
   title: string;
   description: string;
   requiresUpload: boolean;
+  requiresVideo: boolean;
+  showsTeam: boolean;
 };
 
 type TeamProgress = {

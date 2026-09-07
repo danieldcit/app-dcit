@@ -239,6 +239,14 @@ async function seedOnboarding() {
     where: { title: 'Enviar documentos' },
     data: { requiresUpload: true },
   });
+  await prisma.onboardingTask.updateMany({
+    where: { title: 'Assistir ao vídeo de boas-vindas' },
+    data: { requiresVideo: true },
+  });
+  await prisma.onboardingTask.updateMany({
+    where: { title: 'Conhecer o time' },
+    data: { showsTeam: true },
+  });
 
   const existing = await prisma.onboardingTask.findFirst();
   if (existing) return;
@@ -263,12 +271,14 @@ async function seedOnboarding() {
         title: 'Assistir ao vídeo de boas-vindas',
         description: 'Conheça a cultura e os valores da DCIT Tecnologia.',
         order: 3,
+        requiresVideo: true,
       },
       {
         icon: 'people-outline',
         title: 'Conhecer o time',
         description: 'Veja quem são as pessoas com quem você vai trabalhar.',
         order: 4,
+        showsTeam: true,
       },
       {
         icon: 'key-outline',

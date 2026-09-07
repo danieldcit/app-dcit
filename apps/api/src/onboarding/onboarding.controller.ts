@@ -31,6 +31,6 @@ export class OnboardingController {
     @Param('taskId') taskId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.onboarding.toggleTask(req.user.sub, taskId);
+    return this.onboarding.toggleTask(req.user.sub, taskId, req.user.name);
   }
 }

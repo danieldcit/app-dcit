@@ -45,6 +45,9 @@ const DOCUMENT_SUBMITTED_LABEL: Record<DocumentKind, string> = {
   admissional: 'um documento admissional',
 };
 
+const onboardingTaskCompletedMessage = (colaboradorName: string, taskTitle: string) =>
+  `${colaboradorName} concluiu a etapa "${taskTitle}" do onboarding.`;
+
 @Injectable()
 export class NotificationsService {
   constructor(
@@ -233,6 +236,40 @@ export class NotificationsService {
         category: kind,
         message: `${submitterName} enviou ${DOCUMENT_SUBMITTED_LABEL[kind]}.`,
         link: '/documentos',
+      })),
+    });
+
+    void Promise.all(
+      created.map((n) =>
+        this.expoPush.sendToUser(n.userId, {
+          title: 'Ponto DCIT',
+          body: n.message,
+          data: { notificationId: n.id, link: n.link },
+        }),
+      ),
+    );
+  }
+
+  // Fires only on the transition into "completed" (see OnboardingService.
+  // toggleTask) — undoing a task, or re-toggling it back and forth, never
+  // notifies on the way down, only on each way up.
+  async sendOnboardingTaskCompleted(
+    taskTitle: string,
+    colaboradorUserId: string,
+    colaboradorName: string,
+  ): Promise<void> {
+    const recipients = await this.prisma.employee.findMany({
+      where: { role: { in: ['gestor', 'rh'] }, deletedAt: null, userId: { not: colaboradorUserId } },
+      select: { userId: true },
+    });
+
+    const created = await this.prisma.notification.createManyAndReturn({
+      data: recipients.map((r) => ({
+        userId: r.userId,
+        type: 'onboarding_concluido',
+        category: null,
+        message: onboardingTaskCompletedMessage(colaboradorName, taskTitle),
+        link: '/onboarding',
       })),
     });
 

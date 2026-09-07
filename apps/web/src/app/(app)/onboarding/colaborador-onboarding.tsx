@@ -7,12 +7,16 @@ import { ADMISSION_DOCUMENT_KINDS, ADMISSION_DOCUMENT_KIND_LABELS } from "@ponto
 import { AdmissionDocumentBox } from "../documentos/admission-document-box";
 import { toggleOnboardingTask } from "./actions";
 import styles from "./onboarding.module.css";
+import { TeamSection } from "./team-section";
+import { WelcomeVideoPlayer } from "./welcome-video-player";
 
 type Task = {
   id: string;
   title: string;
   description: string;
   requiresUpload: boolean;
+  requiresVideo: boolean;
+  showsTeam: boolean;
 };
 
 type AdmissionDocumentRecord = {
@@ -78,7 +82,7 @@ export function ColaboradorOnboarding({
                 className={styles.itemButton}
                 disabled={pendingTaskId === task.id}
                 onClick={() =>
-                  task.requiresUpload
+                  task.requiresUpload || task.requiresVideo || task.showsTeam
                     ? setExpandedTaskId(expanded ? null : task.id)
                     : handleToggle(task.id)
                 }
@@ -87,15 +91,47 @@ export function ColaboradorOnboarding({
                   <span className={styles.itemName}>{task.title}</span>
                   <span className={styles.itemDetail}>{task.description}</span>
                 </div>
-                <span className={isDone ? styles.statusComplete : styles.statusPending}>
-                  {isDone
-                    ? "Concluído"
-                    : task.requiresUpload
-                      ? expanded
-                        ? "Fechar"
-                        : "Enviar"
-                      : "Marcar"}
-                </span>
+                <div className={styles.itemRight}>
+                  <span className={isDone ? styles.statusComplete : styles.statusPending}>
+                    {task.requiresUpload
+                      ? isDone
+                        ? "Concluído"
+                        : expanded
+                          ? "Fechar"
+                          : "Enviar"
+                      : task.requiresVideo
+                        ? isDone
+                          ? "Concluído"
+                          : expanded
+                            ? "Fechar"
+                            : "Assistir"
+                        : task.showsTeam
+                          ? isDone
+                            ? "Concluído"
+                            : expanded
+                              ? "Fechar"
+                              : "Ver equipe"
+                          : isDone
+                            ? "Desfazer"
+                            : "Concluído"}
+                  </span>
+                  {task.requiresUpload || task.requiresVideo || task.showsTeam ? (
+                    <svg
+                      className={expanded ? `${styles.itemChevron} ${styles.itemChevronOpen}` : styles.itemChevron}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M6 9l6 6 6-6"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : null}
+                </div>
               </button>
 
               {task.requiresUpload && expanded ? (
@@ -124,6 +160,20 @@ export function ColaboradorOnboarding({
                     );
                   })}
                 </ul>
+              ) : null}
+
+              {task.requiresVideo && expanded ? (
+                <div className={styles.videoSection}>
+                  <WelcomeVideoPlayer onCompleted={() => !isDone && handleToggle(task.id)} />
+                </div>
+              ) : null}
+
+              {task.showsTeam && expanded ? (
+                <TeamSection
+                  isDone={isDone}
+                  pending={pendingTaskId === task.id}
+                  onToggle={() => handleToggle(task.id)}
+                />
               ) : null}
             </li>
           );

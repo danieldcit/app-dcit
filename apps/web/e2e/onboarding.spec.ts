@@ -123,6 +123,97 @@ test("the Enviar documentos task shows the 5 fixed document boxes when expanded,
   await expect(page.getByText("Certidão de nascimento dos filhos", { exact: true })).toBeVisible();
 });
 
+test("the Assistir ao vídeo task expands to an embedded player, not a toggle", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [
+        {
+          id: "task-3",
+          title: "Assistir ao vídeo de boas-vindas",
+          description: "Conheça a cultura da empresa.",
+          requiresUpload: false,
+          requiresVideo: true,
+        },
+      ],
+      completedTaskIds: [],
+    },
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByText("Assistir", { exact: true })).toBeVisible();
+  await page.getByText("Assistir ao vídeo de boas-vindas").click();
+
+  await expect(page.getByText("Fechar", { exact: true })).toBeVisible();
+
+  // The embedded player talks to the real youtube.com (no fake for a
+  // third-party embed in this suite) — assert only the wiring this test
+  // owns: expanding never calls the toggle endpoint by itself. Completion
+  // is exercised as a unit of trust in WelcomeVideoPlayer's onEnded wiring,
+  // not re-verified against a real YouTube playthrough here.
+  const recorded = await getRecordedRequests(request);
+  expect(recorded.some((r) => r.method === "POST" && r.path === "/onboarding/tarefas/task-3/toggle")).toBe(false);
+});
+
+test("the Conhecer o time task expands to the team grid, with its own Marcar como concluído button", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [
+        {
+          id: "task-4",
+          title: "Conhecer o time",
+          description: "Veja quem são as pessoas com quem você vai trabalhar.",
+          requiresUpload: false,
+          requiresVideo: false,
+          showsTeam: true,
+        },
+      ],
+      completedTaskIds: [],
+    },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/onboarding/tarefas/task-4/toggle",
+    response: { completed: true },
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByText("Ver equipe", { exact: true })).toBeVisible();
+  await page.getByText("Conhecer o time").click();
+
+  await expect(page.getByText("Fechar", { exact: true })).toBeVisible();
+  await expect(page.getByText("Founder e CEO na DCIT")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Marcar como concluído" })).toBeVisible();
+
+  // Expanding is separate from completing — only clicking the button inside
+  // the grid (not the row header) should call the toggle endpoint.
+  let recorded = await getRecordedRequests(request);
+  expect(recorded.some((r) => r.method === "POST" && r.path === "/onboarding/tarefas/task-4/toggle")).toBe(false);
+
+  await page.getByRole("button", { name: "Marcar como concluído" }).click();
+  await expect
+    .poll(async () => {
+      const requests = await getRecordedRequests(request);
+      return requests.some((r) => r.method === "POST" && r.path === "/onboarding/tarefas/task-4/toggle");
+    })
+    .toBe(true);
+});
+
 test("submitting a document box from Onboarding posts to the same admissionais endpoint used by Documentos", async ({
   page,
   context,
@@ -242,7 +333,43 @@ test("toggling a non-upload task calls the toggle endpoint", async ({ page, cont
   });
 
   await page.goto("/onboarding");
-  await page.getByText("Assinar o contrato").click();
+  const taskItem = page.locator("li", { hasText: "Assinar o contrato" });
+  await expect(taskItem.getByText("Concluído", { exact: true })).toBeVisible();
+  await taskItem.click();
+
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.some((r) => r.method === "POST" && r.path === "/onboarding/tarefas/task-1/toggle");
+    })
+    .toBe(true);
+});
+
+test("a completed non-upload task shows Desfazer, and clicking it undoes the completion", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [{ id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false }],
+      completedTaskIds: ["task-1"],
+    },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/onboarding/tarefas/task-1/toggle",
+    response: { completed: false },
+  });
+
+  await page.goto("/onboarding");
+  const taskItem = page.locator("li", { hasText: "Assinar o contrato" });
+  await expect(taskItem.getByText("Desfazer", { exact: true })).toBeVisible();
+  await taskItem.click();
 
   await expect
     .poll(async () => {

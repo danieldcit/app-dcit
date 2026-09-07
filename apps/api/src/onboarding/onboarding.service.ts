@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class OnboardingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async getTasks(userId: string) {
     const [tasks, progress, admissionDocumentCount] = await Promise.all([
@@ -72,7 +76,13 @@ export class OnboardingService {
     return [...progressTaskIds, uploadTask.id];
   }
 
-  async toggleTask(userId: string, taskId: string) {
+  // Freely reversible — a colaborador can toggle a task on and off as many
+  // times as they like. Only the transition *into* completed notifies
+  // gestor/rh (see NotificationsService.sendOnboardingTaskCompleted);
+  // undoing never does, so toggling back and forth doesn't spam them either
+  // — each re-completion after an undo does notify again, since from
+  // gestor/rh's perspective that's a genuine new "done" event.
+  async toggleTask(userId: string, taskId: string, userName: string) {
     const existing = await this.prisma.onboardingProgress.findUnique({
       where: { userId_taskId: { userId, taskId } },
     });
@@ -83,7 +93,12 @@ export class OnboardingService {
       });
       return { completed: false };
     }
+
     await this.prisma.onboardingProgress.create({ data: { userId, taskId } });
+    const task = await this.prisma.onboardingTask.findUnique({ where: { id: taskId } });
+    if (task) {
+      await this.notifications.sendOnboardingTaskCompleted(task.title, userId, userName);
+    }
     return { completed: true };
   }
 }

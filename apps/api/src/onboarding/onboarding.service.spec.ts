@@ -3,19 +3,25 @@ process.env.DATABASE_URL = 'file:./test.db';
 import { Test, TestingModule } from '@nestjs/testing';
 import { OnboardingService } from './onboarding.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 describe('OnboardingService', () => {
   let service: OnboardingService;
   let prisma: PrismaService;
+  const notificationsMock = { sendOnboardingTaskCompleted: jest.fn() };
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [OnboardingService, PrismaService],
+      providers: [OnboardingService, PrismaService, { provide: NotificationsService, useValue: notificationsMock }],
     }).compile();
 
     service = module.get(OnboardingService);
     prisma = module.get(PrismaService);
     await prisma.onModuleInit();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -57,7 +63,7 @@ describe('OnboardingService', () => {
     expect(result.completedTaskIds).toEqual([task1.id]);
   });
 
-  it('toggles task completion on and off', async () => {
+  it('toggles task completion on and off, any number of times', async () => {
     const task = await prisma.onboardingTask.create({
       data: {
         icon: 'videocam-outline',
@@ -67,11 +73,42 @@ describe('OnboardingService', () => {
       },
     });
 
-    const toggledOn = await service.toggleTask('user-b', task.id);
+    const toggledOn = await service.toggleTask('user-b', task.id, 'Bruno');
     expect(toggledOn).toEqual({ completed: true });
 
-    const toggledOff = await service.toggleTask('user-b', task.id);
+    const toggledOff = await service.toggleTask('user-b', task.id, 'Bruno');
     expect(toggledOff).toEqual({ completed: false });
+
+    // Undo isn't a one-shot — toggling back and forth repeatedly must keep working.
+    const toggledOnAgain = await service.toggleTask('user-b', task.id, 'Bruno');
+    expect(toggledOnAgain).toEqual({ completed: true });
+    const toggledOffAgain = await service.toggleTask('user-b', task.id, 'Bruno');
+    expect(toggledOffAgain).toEqual({ completed: false });
+  });
+
+  it('notifies gestor/rh only on the transition into completed, never on undo, and again on re-completion', async () => {
+    const task = await prisma.onboardingTask.create({
+      data: {
+        icon: 'document-outline',
+        title: 'Assinar contrato',
+        description: 'Assine o contrato',
+        order: 4,
+      },
+    });
+
+    await service.toggleTask('user-notify', task.id, 'Nina Notificada');
+    expect(notificationsMock.sendOnboardingTaskCompleted).toHaveBeenCalledTimes(1);
+    expect(notificationsMock.sendOnboardingTaskCompleted).toHaveBeenCalledWith(
+      'Assinar contrato',
+      'user-notify',
+      'Nina Notificada',
+    );
+
+    await service.toggleTask('user-notify', task.id, 'Nina Notificada');
+    expect(notificationsMock.sendOnboardingTaskCompleted).toHaveBeenCalledTimes(1); // still 1 — undo didn't notify
+
+    await service.toggleTask('user-notify', task.id, 'Nina Notificada');
+    expect(notificationsMock.sendOnboardingTaskCompleted).toHaveBeenCalledTimes(2); // re-completed — notifies again
   });
 
   it("summarizes each employee's onboarding progress against the total task count", async () => {

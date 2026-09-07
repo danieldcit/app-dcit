@@ -245,6 +245,8 @@ model OnboardingTask {
   description    String
   order          Int
   requiresUpload Boolean @default(false)
+  requiresVideo  Boolean @default(false) // today, always "Assistir ao vídeo de boas-vindas" — same one-flagged-task convention as requiresUpload
+  showsTeam      Boolean @default(false) // today, always "Conhecer o time" — same one-flagged-task convention as requiresUpload
 }
 
 model OnboardingProgress {

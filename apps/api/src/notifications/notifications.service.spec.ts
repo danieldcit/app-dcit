@@ -514,6 +514,58 @@ describe('NotificationsService', () => {
     });
   });
 
+  describe('sendOnboardingTaskCompleted', () => {
+    afterEach(async () => {
+      await prisma.employee.deleteMany({ where: { userId: { startsWith: 'user-onb-comp-' } } });
+    });
+
+    it('notifies every active gestor/rh, excluding the colaborador themself', async () => {
+      await prisma.employee.create({
+        data: { userId: 'user-onb-comp-gestor', name: 'Gustavo Gestor', role: 'gestor', hireDate: new Date('2024-01-01') },
+      });
+      await prisma.employee.create({
+        data: { userId: 'user-onb-comp-rh', name: 'Rita RH', role: 'rh', hireDate: new Date('2024-01-01') },
+      });
+      await prisma.employee.create({
+        data: { userId: 'user-onb-comp-colaborador', name: 'Carla Colaboradora', role: 'colaborador', hireDate: new Date('2024-01-01') },
+      });
+      await prisma.employee.create({
+        data: { userId: 'user-onb-comp-gestor-inativo', name: 'Inativo', role: 'gestor', hireDate: new Date('2024-01-01'), deletedAt: new Date('2026-01-01') },
+      });
+
+      await service.sendOnboardingTaskCompleted('Assinar contrato', 'user-onb-comp-colaborador', 'Carla Colaboradora');
+
+      const notifications = await prisma.notification.findMany({ where: { type: 'onboarding_concluido' } });
+      expect(notifications.map((n) => n.userId).sort()).toEqual(
+        ['user-onb-comp-gestor', 'user-onb-comp-rh'].sort(),
+      );
+      expect(notifications[0]).toMatchObject({
+        type: 'onboarding_concluido',
+        category: null,
+        message: 'Carla Colaboradora concluiu a etapa "Assinar contrato" do onboarding.',
+        link: '/onboarding',
+      });
+    });
+
+    it('sends a push to every recipient with the notification id and link', async () => {
+      await prisma.employee.create({
+        data: { userId: 'user-onb-comp-rh2', name: 'Rita RH', role: 'rh', hireDate: new Date('2024-01-01') },
+      });
+
+      await service.sendOnboardingTaskCompleted('Configurar acessos', 'user-onb-comp-colaborador-2', 'Davi Colaborador');
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const notification = await prisma.notification.findFirstOrThrow({
+        where: { type: 'onboarding_concluido', userId: 'user-onb-comp-rh2' },
+      });
+      expect(sendToUser).toHaveBeenCalledWith('user-onb-comp-rh2', {
+        title: 'Ponto DCIT',
+        body: notification.message,
+        data: { notificationId: notification.id, link: '/onboarding' },
+      });
+    });
+  });
+
   describe('sendDocumentStatusChanged', () => {
     it('notifies only the given user, aprovado wording', async () => {
       await service.sendDocumentStatusChanged('atestado', 'user-doc-status-1', 'aprovado');
