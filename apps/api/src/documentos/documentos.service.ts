@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ExpoPushService } from '../push/expo-push.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OnboardingService } from '../onboarding/onboarding.service';
 import { buildPayslipPdf } from './payslip-pdf';
 
 function parseDateBR(value: string): Date {
@@ -23,6 +24,7 @@ export class DocumentosService {
     private readonly prisma: PrismaService,
     private readonly push: ExpoPushService,
     private readonly notifications: NotificationsService,
+    private readonly onboarding: OnboardingService,
   ) {}
 
   listPayslips(userId: string) {
@@ -100,6 +102,7 @@ export class DocumentosService {
       },
     });
     await this.notifications.sendDocumentSubmitted('admissional', userId, userName);
+    await this.onboarding.checkAutoUnlock(userId);
     return document;
   }
 
@@ -175,6 +178,7 @@ export class DocumentosService {
       update: { fileDataUrl, submittedAt: new Date() },
     });
     await this.notifications.sendDocumentSubmitted('contrato', userId, userName);
+    await this.onboarding.checkAutoUnlock(userId);
     return { submittedAt: contract.submittedAt };
   }
 
