@@ -25,7 +25,7 @@ type TeamProgress = {
 
 function grantLabel(entry: TeamProgress): string {
   if (!entry.fullAccessGrantedAt) return "Liberar acesso total ao SGP Portal";
-  if (entry.fullAccessGrantSource === "manual") {
+  if (entry.fullAccessGrantSource === "manual" && entry.fullAccessGrantedByName) {
     return `Liberado manualmente por ${entry.fullAccessGrantedByName}`;
   }
   return "Acesso liberado automaticamente";

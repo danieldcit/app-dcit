@@ -294,8 +294,14 @@ model OnboardingAccessGrant {
   id            String   @id @default(uuid())
   userId        String   @unique
   grantedAt     DateTime @default(now())
-  source        String   @default("auto") // "auto" | "manual"
-  grantedByName String?  // set only when source = "manual"
+  // "manual" is the only value any code path creates today
+  // (OnboardingService.grantFullAccess always sets it explicitly) — "auto"
+  // survives only as a historical value on rows created while the
+  // since-reverted auto-unlock feature was live. Defaulting to "manual"
+  // means any future write that forgets to set this explicitly gets the
+  // now-normal case, not a misleading "auto" label.
+  source        String   @default("manual") // "auto" | "manual"
+  grantedByName String? // set only when source = "manual"
 }
 
 // --- Operacional / TI --------------------------------------------------

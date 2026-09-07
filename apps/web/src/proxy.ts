@@ -89,6 +89,10 @@ export async function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+// "documents" here is the static-asset folder (public/documents/, the
+// contract template PDF) — NOT the app route "/documentos". They differ by
+// one letter; don't "fix" this to match the app route, that would silently
+// un-gate the real Documentos page for every role.
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|documents|sgp-icon.png).*)"],
 };
