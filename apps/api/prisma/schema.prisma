@@ -291,9 +291,11 @@ model OnboardingAccessItem {
 // Presence of a row (not a boolean) is the "granted" signal, same as
 // SignedContract's presence-means-submitted shape.
 model OnboardingAccessGrant {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  grantedAt DateTime @default(now())
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  grantedAt     DateTime @default(now())
+  source        String   @default("auto") // "auto" | "manual"
+  grantedByName String?  // set only when source = "manual"
 }
 
 // --- Operacional / TI --------------------------------------------------
