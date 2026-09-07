@@ -409,7 +409,7 @@ test("rejects a non-PDF file for the signed contract with an inline error", asyn
   await expect(page.getByText("Formato não suportado — envie um PDF.")).toBeVisible();
 });
 
-test("gestor/rh see who has sent a signed contract, with a download link only when one exists", async ({
+test("gestor/rh see who has sent a signed contract, with view/download links only when one exists", async ({
   page,
   context,
   request,
@@ -432,11 +432,16 @@ test("gestor/rh see who has sent a signed contract, with a download link only wh
   await expect(page.getByText("Nenhum contrato assinado enviado ainda.")).toBeVisible();
 
   const row = page.locator("li").filter({ has: page.getByText("Colaborador Um") });
+  await expect(row.getByRole("link", { name: "Visualizar" })).toHaveAttribute(
+    "href",
+    "/api/documentos/contrato/colab-1/arquivo?inline=1",
+  );
   await expect(row.getByRole("link", { name: "Baixar" })).toHaveAttribute(
     "href",
     "/api/documentos/contrato/colab-1/arquivo",
   );
   const otherRow = page.locator("li").filter({ has: page.getByText("Colaborador Dois") });
+  await expect(otherRow.getByRole("link", { name: "Visualizar" })).toHaveCount(0);
   await expect(otherRow.getByRole("link", { name: "Baixar" })).toHaveCount(0);
 });
 

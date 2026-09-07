@@ -166,12 +166,22 @@ async function TeamView({ session }: { session: Session }) {
                     </span>
                   </div>
                   {contract.submittedAt ? (
-                    <a
-                      href={`/api/documentos/contrato/${contract.userId}/arquivo`}
-                      className={styles.contractDownloadLink}
-                    >
-                      Baixar
-                    </a>
+                    <div className={styles.itemActions}>
+                      <a
+                        href={`/api/documentos/contrato/${contract.userId}/arquivo?inline=1`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.contractDownloadLink}
+                      >
+                        Visualizar
+                      </a>
+                      <a
+                        href={`/api/documentos/contrato/${contract.userId}/arquivo`}
+                        className={styles.contractDownloadLink}
+                      >
+                        Baixar
+                      </a>
+                    </div>
                   ) : null}
                 </div>
               </li>

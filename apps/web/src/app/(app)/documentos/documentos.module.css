@@ -360,6 +360,13 @@
   margin-top: 12px;
 }
 
+.itemActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .contractDownloadLink {
   align-self: flex-start;
   border: 1px solid var(--color-background-selected);
@@ -369,6 +376,7 @@
   font-weight: 600;
   color: var(--color-text);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .contractDownloadLink:hover {
