@@ -74,6 +74,7 @@ export async function mockApi(
     notifications?: unknown[];
     myContract?: unknown;
     teamContracts?: unknown[];
+    onboardingUnlocked?: boolean;
   } = {}
 ) {
   await request.post(`${FAKE_API_URL}/__reset`);
@@ -235,6 +236,11 @@ export async function mockApi(
   if (data.teamContracts) {
     await request.post(`${FAKE_API_URL}/__seed`, {
       data: { path: "/documentos/contrato/equipe", response: data.teamContracts },
+    });
+  }
+  if (data.onboardingUnlocked !== undefined) {
+    await request.post(`${FAKE_API_URL}/__seed`, {
+      data: { path: "/onboarding/meu-status", response: { unlocked: data.onboardingUnlocked } },
     });
   }
 }

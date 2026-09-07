@@ -145,6 +145,14 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "GET" && url.pathname === "/onboarding/equipe") {
     return sendJson(res, 200, []);
   }
+  if (req.method === "GET" && url.pathname === "/onboarding/tarefas") {
+    return sendJson(res, 200, {
+      tasks: [],
+      completedTaskIds: [],
+      completedAccessItems: [],
+      fullAccessGrantedAt: null,
+    });
+  }
   if (
     req.method === "GET" &&
     ["/operacional/sobreaviso/equipe", "/operacional/deslocamentos/equipe"].includes(
@@ -175,6 +183,9 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === "POST" && /^\/onboarding\/acessos\/[^/]+\/toggle$/.test(url.pathname)) {
     return sendJson(res, 200, { completed: true });
+  }
+  if (req.method === "GET" && url.pathname === "/onboarding/meu-status") {
+    return sendJson(res, 200, { unlocked: true });
   }
   if (req.method === "POST" && url.pathname === "/operacional/escala") {
     return sendJson(res, 201, { id: "generated-id", ...body });
