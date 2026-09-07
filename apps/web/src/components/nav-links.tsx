@@ -135,9 +135,32 @@ function NavGroupItem({
   );
 }
 
-export function NavLinks({ role, collapsed }: { role: NavRole; collapsed?: boolean }) {
+export function NavLinks({
+  role,
+  collapsed,
+  restricted,
+}: {
+  role: NavRole;
+  collapsed?: boolean;
+  restricted?: boolean;
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  if (restricted) {
+    return (
+      <nav className={styles.navSections}>
+        <ul className={styles.nav}>
+          <NavLinkItem
+            link={{ href: "/onboarding", label: "Onboarding" }}
+            pathname={pathname}
+            searchParams={searchParams}
+            collapsed={collapsed}
+          />
+        </ul>
+      </nav>
+    );
+  }
 
   if (role === "colaborador") {
     return (

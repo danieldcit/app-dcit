@@ -21,15 +21,17 @@ export function AppShell({
   children,
   user,
   notifications,
+  restricted,
 }: {
   children: ReactNode;
   user: Session;
   notifications: NotificationRecord[];
+  restricted?: boolean;
 }) {
   return (
     <NotificationProvider notifications={notifications}>
       <div className={styles.shell}>
-        <SidebarShell role={user.role} />
+        <SidebarShell role={user.role} restricted={restricted} />
         <div className={styles.main}>
           <header className={styles.topbar}>
             <SearchOverlay role={user.role} />

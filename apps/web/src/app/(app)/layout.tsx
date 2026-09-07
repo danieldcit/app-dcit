@@ -13,8 +13,15 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const notifications = await apiFetchJson<NotificationRecord[]>("/notifications/mine").catch(
     () => [] as NotificationRecord[],
   );
+  // middleware.ts already redirects a restricted colaborador to /onboarding
+  // for every other route — this second check (same endpoint) only decides
+  // what the sidebar itself renders on the page middleware just let through.
+  const restricted =
+    user.role === "colaborador" &&
+    !(await apiFetchJson<{ unlocked: boolean }>("/onboarding/meu-status").catch(() => ({ unlocked: true })))
+      .unlocked;
   return (
-    <AppShell user={user} notifications={notifications}>
+    <AppShell user={user} notifications={notifications} restricted={restricted}>
       {children}
     </AppShell>
   );

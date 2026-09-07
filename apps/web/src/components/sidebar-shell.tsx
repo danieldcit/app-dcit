@@ -10,7 +10,7 @@ import styles from "./app-shell.module.css";
 
 const SIDEBAR_COLLAPSED_KEY = "sidebar-collapsed";
 
-export function SidebarShell({ role }: { role: NavRole }) {
+export function SidebarShell({ role, restricted }: { role: NavRole; restricted?: boolean }) {
   // Always starts expanded, matching SSR — same reasoning as ThemeToggle:
   // reading localStorage during the initial render would risk a
   // client-vs-server mismatch. Synced from the real stored value right
@@ -72,7 +72,7 @@ export function SidebarShell({ role }: { role: NavRole }) {
           </svg>
         </button>
       </div>
-      <NavLinks role={role} collapsed={collapsed} />
+      <NavLinks role={role} collapsed={collapsed} restricted={restricted} />
     </aside>
   );
 }
