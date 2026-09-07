@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ADMISSION_DOCUMENT_KINDS, ONBOARDING_ACCESS_ITEMS } from '@ponto-dcit/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -82,24 +82,23 @@ export class OnboardingService {
     });
   }
 
-  // Manual, one-time action gestor/rh takes after every onboarding task is
-  // done — not derived like the two tasks above, and not reversible: once
-  // granted, re-calling this is a no-op (returns the existing grant) rather
-  // than re-notifying the colaborador.
-  async grantFullAccess(userId: string) {
-    const { tasks, completedTaskIds } = await this.getTasks(userId);
-    if (tasks.length === 0 || completedTaskIds.length < tasks.length) {
-      throw new BadRequestException('Ainda há tarefas de onboarding pendentes.');
-    }
-
+  // Manual exception gestor/rh can trigger at any time, complete or not —
+  // checkAutoUnlock already covers the "finished everything" case on its
+  // own, so every call that reaches here that actually creates a row is,
+  // by definition, unlocking someone early. Idempotent either way: once a
+  // grant exists (auto or manual), re-calling this returns it unchanged
+  // rather than re-notifying or overwriting its source.
+  async grantFullAccess(userId: string, granterName: string) {
     const existing = await this.prisma.onboardingAccessGrant.findUnique({ where: { userId } });
     if (existing) {
-      return { grantedAt: existing.grantedAt };
+      return { grantedAt: existing.grantedAt, source: existing.source, grantedByName: existing.grantedByName };
     }
 
-    const grant = await this.prisma.onboardingAccessGrant.create({ data: { userId } });
+    const grant = await this.prisma.onboardingAccessGrant.create({
+      data: { userId, source: 'manual', grantedByName: granterName },
+    });
     await this.notifications.sendFullAccessGranted(userId);
-    return { grantedAt: grant.grantedAt };
+    return { grantedAt: grant.grantedAt, source: grant.source, grantedByName: grant.grantedByName };
   }
 
   // Called after any mutation that could complete the track (the two

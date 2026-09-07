@@ -387,54 +387,48 @@ describe('OnboardingService', () => {
   });
 
   describe('grantFullAccess', () => {
-    // Same per-case reset reasoning as the describe blocks above: getTasks
-    // (which this reads completion from) sees every OnboardingTask row
-    // system-wide, so each case needs a controlled, single-task table.
+    // Same per-case reset reasoning as the describe blocks above.
     beforeEach(async () => {
       await prisma.onboardingTask.deleteMany();
     });
 
-    it('rejects with pending tasks, without notifying', async () => {
+    it('grants access even with pending tasks, recording who granted it', async () => {
       await prisma.onboardingTask.create({
         data: { icon: 'key-outline', title: 'Assinar o contrato', description: '...', order: 1 },
       });
 
-      await expect(service.grantFullAccess('user-grant-a')).rejects.toThrow(
-        'Ainda há tarefas de onboarding pendentes.',
-      );
-      expect(notificationsMock.sendFullAccessGranted).not.toHaveBeenCalled();
+      const result = await service.grantFullAccess('user-grant-a', 'Carla RH');
+
+      expect(result).toMatchObject({ source: 'manual', grantedByName: 'Carla RH' });
+      expect(notificationsMock.sendFullAccessGranted).toHaveBeenCalledWith('user-grant-a');
+
+      const stored = await prisma.onboardingAccessGrant.findUnique({ where: { userId: 'user-grant-a' } });
+      expect(stored).toMatchObject({ source: 'manual', grantedByName: 'Carla RH' });
     });
 
-    it('grants access, persists it, and notifies the colaborador once every task is complete', async () => {
-      const task = await prisma.onboardingTask.create({
-        data: { icon: 'key-outline', title: 'Assistir ao vídeo', description: '...', order: 1 },
-      });
-      await prisma.onboardingProgress.create({ data: { userId: 'user-grant-b', taskId: task.id } });
+    it('is idempotent — calling it again returns the existing grant without re-notifying or overwriting it', async () => {
+      const first = await service.grantFullAccess('user-grant-b', 'Carla RH');
 
-      const result = await service.grantFullAccess('user-grant-b');
+      const second = await service.grantFullAccess('user-grant-b', 'Bruno Gestor');
 
-      expect(result.grantedAt).toBeInstanceOf(Date);
-      expect(notificationsMock.sendFullAccessGranted).toHaveBeenCalledWith('user-grant-b');
-
-      const stored = await prisma.onboardingAccessGrant.findUnique({ where: { userId: 'user-grant-b' } });
-      expect(stored).not.toBeNull();
+      expect(second).toEqual(first);
+      expect(notificationsMock.sendFullAccessGranted).toHaveBeenCalledTimes(1);
     });
 
-    it('is idempotent — calling it again returns the same grant without re-notifying', async () => {
+    it('does not overwrite an existing auto grant with a manual one', async () => {
       const task = await prisma.onboardingTask.create({
         data: { icon: 'key-outline', title: 'Assistir ao vídeo', description: '...', order: 1 },
       });
       await prisma.onboardingProgress.create({ data: { userId: 'user-grant-c', taskId: task.id } });
+      await service.checkAutoUnlock('user-grant-c');
 
-      const first = await service.grantFullAccess('user-grant-c');
-      const second = await service.grantFullAccess('user-grant-c');
+      const result = await service.grantFullAccess('user-grant-c', 'Carla RH');
 
-      expect(second.grantedAt).toEqual(first.grantedAt);
-      expect(notificationsMock.sendFullAccessGranted).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ source: 'auto', grantedByName: null });
     });
 
     it('reflects fullAccessGrantedAt (null, then set) in listTeamProgress', async () => {
-      const task = await prisma.onboardingTask.create({
+      await prisma.onboardingTask.create({
         data: { icon: 'key-outline', title: 'Assistir ao vídeo', description: '...', order: 1 },
       });
       await prisma.employee.create({
@@ -449,8 +443,7 @@ describe('OnboardingService', () => {
       const beforeGrant = await service.listTeamProgress();
       expect(beforeGrant.find((r) => r.userId === 'user-grant-d')?.fullAccessGrantedAt).toBeNull();
 
-      await prisma.onboardingProgress.create({ data: { userId: 'user-grant-d', taskId: task.id } });
-      await service.grantFullAccess('user-grant-d');
+      await service.grantFullAccess('user-grant-d', 'Carla RH');
 
       const afterGrant = await service.listTeamProgress();
       expect(afterGrant.find((r) => r.userId === 'user-grant-d')?.fullAccessGrantedAt).not.toBeNull();
