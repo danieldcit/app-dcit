@@ -24,11 +24,12 @@ export function TeamSection({
             <div key={memberIndex} className={styles.teamMember}>
               <Image
                 src={member.image}
-                alt={member.title}
+                alt={member.name}
                 width={120}
                 height={120}
                 className={styles.teamPhoto}
               />
+              <span className={styles.teamName}>{member.name}</span>
               <span className={styles.teamTitle}>{member.title}</span>
             </div>
           ))}
