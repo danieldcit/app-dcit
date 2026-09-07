@@ -148,6 +148,12 @@ describe("documentos screen", () => {
       if (url.endsWith("/documentos/certificacoes")) {
         return Promise.resolve({ ok: true, json: async () => storedCertifications });
       }
+      if (url.endsWith("/documentos/contrato") && options?.method === "POST") {
+        return Promise.resolve({ ok: true, json: async () => ({ submittedAt: new Date().toISOString() }) });
+      }
+      if (url.endsWith("/documentos/contrato")) {
+        return Promise.resolve({ ok: true, json: async () => ({ submittedAt: null }) });
+      }
       return Promise.resolve({ ok: true, json: async () => [] });
     });
 
@@ -404,5 +410,17 @@ describe("documentos screen", () => {
     await waitFor(() => {
       expect(screen.getByText("AWS Certified")).toBeTruthy();
     });
+  });
+
+  it("shows the Contrato category with the download link and upload button", async () => {
+    renderRouter("src/app", { initialUrl: "/documentos" });
+
+    fireEvent.press(screen.getByText("Contrato"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Nenhum contrato assinado enviado ainda.")).toBeTruthy();
+    });
+    expect(screen.getByText("Baixar modelo do contrato")).toBeTruthy();
+    expect(screen.getByText("Enviar PDF assinado")).toBeTruthy();
   });
 });

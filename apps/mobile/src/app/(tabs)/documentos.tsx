@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 
 import { AdmissionDocumentBox } from "@/components/admission-document-box";
+import { ContractBox } from "@/components/contract-box";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
 import { TabBackground } from "@/components/tab-background";
@@ -29,19 +30,22 @@ import {
   fetchCertifications,
   fetchPayslips,
   submitCertification,
+  fetchSignedContract,
   type AdmissionDocumentRecord,
   type CertificationRecord,
   type PayslipRecord,
+  type SignedContractRecord,
 } from "@/lib/documentos-api";
 import { getSessionToken } from "@/lib/session";
 
-type Category = "admissionais" | "atestados" | "holerites" | "certificacoes";
+type Category = "admissionais" | "atestados" | "holerites" | "certificacoes" | "contrato";
 
 const CATEGORIES: { key: Category; label: string }[] = [
   { key: "admissionais", label: "Admissionais" },
   { key: "atestados", label: "Atestados" },
   { key: "holerites", label: "Holerites" },
   { key: "certificacoes", label: "Certificações" },
+  { key: "contrato", label: "Contrato" },
 ];
 
 export default function DocumentosScreen() {
@@ -79,6 +83,7 @@ export default function DocumentosScreen() {
         {category === "atestados" ? <AtestadosSection /> : null}
         {category === "holerites" ? <HoleritesSection /> : null}
         {category === "certificacoes" ? <CertificacoesSection /> : null}
+        {category === "contrato" ? <ContratoSection /> : null}
       </ScrollView>
     </TabBackground>
   );
@@ -529,6 +534,26 @@ function CertificacoesSection() {
       )}
     </View>
   );
+}
+
+function ContratoSection() {
+  const [contract, setContract] = useState<SignedContractRecord>({ submittedAt: null });
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      getSessionToken().then(async (token) => {
+        if (!token) return;
+        const result = await fetchSignedContract(token);
+        if (!cancelled && result) setContract(result);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  return <ContractBox existing={contract} onSubmitted={() => {}} />;
 }
 
 const styles = StyleSheet.create({
