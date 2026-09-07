@@ -45,13 +45,17 @@ export default async function OnboardingPage() {
   }
 
   if (session.role === "colaborador") {
-    const [{ tasks, completedTaskIds, completedAccessItems }, admissionDocuments, signedContract] = await Promise.all([
-      apiFetchJson<{ tasks: Task[]; completedTaskIds: string[]; completedAccessItems: string[] }>(
-        "/onboarding/tarefas",
-      ),
-      apiFetchJson<AdmissionDocumentRecord[]>("/documentos/admissionais"),
-      apiFetchJson<{ submittedAt: string | null }>("/documentos/contrato"),
-    ]);
+    const [{ tasks, completedTaskIds, completedAccessItems, fullAccessGrantedAt }, admissionDocuments, signedContract] =
+      await Promise.all([
+        apiFetchJson<{
+          tasks: Task[];
+          completedTaskIds: string[];
+          completedAccessItems: string[];
+          fullAccessGrantedAt: string | null;
+        }>("/onboarding/tarefas"),
+        apiFetchJson<AdmissionDocumentRecord[]>("/documentos/admissionais"),
+        apiFetchJson<{ submittedAt: string | null }>("/documentos/contrato"),
+      ]);
     return (
       <ColaboradorOnboarding
         tasks={tasks}
@@ -59,6 +63,7 @@ export default async function OnboardingPage() {
         admissionDocuments={admissionDocuments}
         signedContract={signedContract}
         completedAccessItems={completedAccessItems}
+        fullAccessGrantedAt={fullAccessGrantedAt}
       />
     );
   }

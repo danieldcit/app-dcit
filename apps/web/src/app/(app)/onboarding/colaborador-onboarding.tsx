@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ADMISSION_DOCUMENT_KINDS, ADMISSION_DOCUMENT_KIND_LABELS } from "@ponto-dcit/shared-types";
 
@@ -38,16 +38,41 @@ export function ColaboradorOnboarding({
   admissionDocuments,
   signedContract,
   completedAccessItems,
+  fullAccessGrantedAt,
 }: {
   tasks: Task[];
   completedTaskIds: string[];
   admissionDocuments: AdmissionDocumentRecord[];
   signedContract: { submittedAt: string | null };
   completedAccessItems: string[];
+  fullAccessGrantedAt: string | null;
 }) {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [pendingAccessItem, setPendingAccessItem] = useState<string | null>(null);
+  const congratsDialogRef = useRef<HTMLDialogElement>(null);
+  // Only mounted once the unlock transition fires (see below) — kept out of
+  // the DOM entirely the rest of the time, rather than always-mounted and
+  // toggled via showModal()/close(), so the congrats text isn't sitting in
+  // the DOM (just display:none) for e2e assertions to accidentally match.
+  const [showCongratsDialog, setShowCongratsDialog] = useState(false);
+  // Tracks the prop across renders, not local UI state — the transition
+  // null -> a value is what means "just unlocked", so this must reflect
+  // what the server told us last render, not a value the modal itself set.
+  const previousGrantedAt = useRef(fullAccessGrantedAt);
+
+  useEffect(() => {
+    if (!previousGrantedAt.current && fullAccessGrantedAt) {
+      setShowCongratsDialog(true);
+    }
+    previousGrantedAt.current = fullAccessGrantedAt;
+  }, [fullAccessGrantedAt]);
+
+  useEffect(() => {
+    if (showCongratsDialog) {
+      congratsDialogRef.current?.showModal();
+    }
+  }, [showCongratsDialog]);
 
   // Derived fresh from props every render (never copied into local state) —
   // both the toggle action and AdmissionDocumentBox's router.refresh() cause
@@ -222,6 +247,18 @@ export function ColaboradorOnboarding({
           );
         })}
       </ul>
+
+      {showCongratsDialog ? (
+        <dialog ref={congratsDialogRef} className={styles.dialog}>
+          <p className={styles.dialogTitle}>🎉 Parabéns! Onboarding concluído</p>
+          <p className={styles.itemDetail}>Seu acesso total ao SGP Portal foi liberado.</p>
+          <div className={styles.dialogActions}>
+            <a href="/" className={styles.grantAccessButton}>
+              Ir para o Dashboard
+            </a>
+          </div>
+        </dialog>
+      ) : null}
     </div>
   );
 }

@@ -523,6 +523,76 @@ test("toggling a non-upload task calls the toggle endpoint", async ({ page, cont
     .toBe(true);
 });
 
+test("completing the last task shows a congratulations modal with a link to the dashboard", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [{ id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false }],
+      completedTaskIds: [],
+      completedAccessItems: [],
+      fullAccessGrantedAt: null,
+    },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/onboarding/tarefas/task-1/toggle",
+    response: { completed: true },
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByText("Parabéns", { exact: false })).toHaveCount(0);
+
+  // Re-seed the GET *before* clicking — same ordering reasoning as the
+  // existing "after uploading a document, the task flips to Concluído"
+  // test: the click's revalidatePath races an already-seeded response.
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [{ id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false }],
+      completedTaskIds: ["task-1"],
+      completedAccessItems: [],
+      fullAccessGrantedAt: "2026-09-07T12:00:00.000Z",
+    },
+  });
+
+  const taskItem = page.locator("li", { hasText: "Assinar o contrato" });
+  await taskItem.click();
+
+  await expect(page.getByText("Parabéns! Onboarding concluído")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ir para o Dashboard" })).toHaveAttribute("href", "/");
+});
+
+test("does not show the congratulations modal on a fresh load that is already unlocked", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [{ id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false }],
+      completedTaskIds: ["task-1"],
+      completedAccessItems: [],
+      fullAccessGrantedAt: "2026-09-06T12:00:00.000Z",
+    },
+  });
+
+  await page.goto("/onboarding");
+
+  await expect(page.getByText("Parabéns", { exact: false })).toHaveCount(0);
+});
+
 test("the Configurar seus acessos task expands to 5 independently toggleable items", async ({
   page,
   context,
