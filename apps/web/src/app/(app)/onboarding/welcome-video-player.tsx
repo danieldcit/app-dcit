@@ -65,6 +65,15 @@ function loadYouTubeApi(): Promise<void> {
 const POLL_INTERVAL_MS = 500;
 const SEEK_TOLERANCE_SECONDS = 1.5;
 
+// Furthest point actually watched, persisted across mounts (collapsing the
+// task, navigating away, reloading the page) so leaving the video doesn't
+// force a rewatch from 0 — the anti-skip-ahead logic below would otherwise
+// snap a fresh mount's playback straight back to the start the instant it
+// advances past a from-scratch maxWatchedSeconds. Not tied to the signed-in
+// user (this component doesn't receive one) — same tradeoff as this app's
+// other localStorage-only preferences (e.g. sidebar-shell's collapsed state).
+const PROGRESS_STORAGE_KEY = `onboarding-video-progress:${VIDEO_ID}`;
+
 export function WelcomeVideoPlayer({ onCompleted }: { onCompleted: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   // Read via a ref inside the effect instead of listing onCompleted as a
@@ -78,7 +87,7 @@ export function WelcomeVideoPlayer({ onCompleted }: { onCompleted: () => void })
     let cancelled = false;
     let player: YouTubePlayer | null = null;
     let pollId: ReturnType<typeof setInterval> | null = null;
-    let maxWatchedSeconds = 0;
+    let maxWatchedSeconds = Number(window.localStorage.getItem(PROGRESS_STORAGE_KEY)) || 0;
 
     loadYouTubeApi().then(() => {
       if (cancelled || !containerRef.current || !window.YT) return;
@@ -88,6 +97,9 @@ export function WelcomeVideoPlayer({ onCompleted }: { onCompleted: () => void })
         playerVars: { modestbranding: 1, rel: 0 },
         events: {
           onReady: () => {
+            if (maxWatchedSeconds > SEEK_TOLERANCE_SECONDS) {
+              player?.seekTo(maxWatchedSeconds, true);
+            }
             pollId = setInterval(() => {
               if (!player) return;
               const current = player.getCurrentTime();
@@ -95,11 +107,13 @@ export function WelcomeVideoPlayer({ onCompleted }: { onCompleted: () => void })
                 player.seekTo(maxWatchedSeconds, true);
               } else {
                 maxWatchedSeconds = Math.max(maxWatchedSeconds, current);
+                window.localStorage.setItem(PROGRESS_STORAGE_KEY, String(maxWatchedSeconds));
               }
             }, POLL_INTERVAL_MS);
           },
           onStateChange: (event) => {
             if (event.data === YT.PlayerState.ENDED) {
+              window.localStorage.removeItem(PROGRESS_STORAGE_KEY);
               onCompletedRef.current();
             }
           },
