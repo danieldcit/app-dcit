@@ -7,8 +7,20 @@ import { SESSION_COOKIE } from "@/lib/session";
 const PUBLIC_ROUTES = ["/login", "/esqueci-senha"];
 
 // Colaboradores whose onboarding isn't unlocked yet are confined to these
-// paths until it is — everything else redirects to /onboarding.
-const ONBOARDING_ALWAYS_ALLOWED = ["/onboarding", "/login"];
+// paths until it is — everything else redirects to /onboarding. "/api" is
+// included because the onboarding page's own embedded upload boxes
+// (admission documents, signed contract) call Next.js Route Handlers under
+// /api/documentos/... directly via fetch(), not Server Actions (a real
+// photo's base64 payload breaks React's Flight serialization) — gating
+// those the same way as full pages silently broke the upload: the fetch
+// followed the redirect to /onboarding's HTML, which is itself a 200, so
+// the client code read that as success and never actually saved anything.
+// This is safe to exempt: every /api/* route only proxies to the real API,
+// which already enforces its own authorization independent of this web-only
+// gate (see the design spec — the gate's accepted risk model is exactly
+// this: a valid colaborador token can already reach any API endpoint
+// directly, onboarding-restricted or not).
+const ONBOARDING_ALWAYS_ALLOWED = ["/onboarding", "/login", "/api"];
 
 // Files under /public (login-background.png, favicon.ico, ...) are static
 // assets, not app routes — redirecting them to /login when unauthenticated
