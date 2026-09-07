@@ -87,6 +87,22 @@ describe('OnboardingService', () => {
     expect(result.completedTaskIds).toEqual([task1.id]);
   });
 
+  it("getTasks includes the user's own fullAccessGrantedAt", async () => {
+    await prisma.onboardingTask.create({
+      data: { icon: 'document-outline', title: 'Solo task', description: '...', order: 100 },
+    });
+
+    const before = await service.getTasks('user-gettasks-grant');
+    expect(before.fullAccessGrantedAt).toBeNull();
+
+    await prisma.onboardingAccessGrant.create({ data: { userId: 'user-gettasks-grant', source: 'manual' } });
+
+    const after = await service.getTasks('user-gettasks-grant');
+    expect(after.fullAccessGrantedAt).toBeInstanceOf(Date);
+
+    await prisma.onboardingAccessGrant.deleteMany({ where: { userId: 'user-gettasks-grant' } });
+  });
+
   it('toggles task completion on and off, any number of times', async () => {
     const task = await prisma.onboardingTask.create({
       data: {
@@ -174,6 +190,8 @@ describe('OnboardingService', () => {
     expect(carla?.completedTaskIds).toEqual([task.id]);
     expect(davi?.completedTaskIds).toEqual([]);
     expect(carla?.tasks.map((t) => t.id)).toContain(task.id);
+    expect(carla?.fullAccessGrantSource).toBeNull();
+    expect(carla?.fullAccessGrantedByName).toBeNull();
   });
 
   it('excludes a soft-deleted employee from listTeamProgress', async () => {

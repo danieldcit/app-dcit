@@ -11,11 +11,12 @@ export class OnboardingService {
   ) {}
 
   async getTasks(userId: string) {
-    const [tasks, progress, admissionDocuments, accessItems] = await Promise.all([
+    const [tasks, progress, admissionDocuments, accessItems, grant] = await Promise.all([
       this.prisma.onboardingTask.findMany({ orderBy: { order: 'asc' } }),
       this.prisma.onboardingProgress.findMany({ where: { userId } }),
       this.prisma.admissionDocument.findMany({ where: { userId }, select: { kind: true } }),
       this.prisma.onboardingAccessItem.findMany({ where: { userId } }),
+      this.prisma.onboardingAccessGrant.findUnique({ where: { userId } }),
     ]);
     const submittedKinds = admissionDocuments.map((d) => d.kind);
     const completedAccessItems = accessItems.map((item) => item.itemKey);
@@ -28,6 +29,7 @@ export class OnboardingService {
         completedAccessItems,
       ),
       completedAccessItems,
+      fullAccessGrantedAt: grant?.grantedAt ?? null,
     };
   }
 
@@ -39,7 +41,7 @@ export class OnboardingService {
       this.prisma.onboardingAccessItem.findMany(),
       this.prisma.onboardingAccessGrant.findMany(),
     ]);
-    const grantedAtByUser = new Map(accessGrants.map((g) => [g.userId, g.grantedAt]));
+    const grantByUser = new Map(accessGrants.map((g) => [g.userId, g]));
     const completedByUser = new Map<string, string[]>();
     for (const entry of progress) {
       const completed = completedByUser.get(entry.userId) ?? [];
@@ -70,6 +72,7 @@ export class OnboardingService {
         submittedKindsByUser.get(employee.userId) ?? [],
         accessItemsByUser.get(employee.userId) ?? [],
       );
+      const grant = grantByUser.get(employee.userId);
       return {
         userId: employee.userId,
         userName: employee.name,
@@ -77,7 +80,9 @@ export class OnboardingService {
         totalCount: tasks.length,
         tasks,
         completedTaskIds,
-        fullAccessGrantedAt: grantedAtByUser.get(employee.userId) ?? null,
+        fullAccessGrantedAt: grant?.grantedAt ?? null,
+        fullAccessGrantSource: grant?.source ?? null,
+        fullAccessGrantedByName: grant?.grantedByName ?? null,
       };
     });
   }
