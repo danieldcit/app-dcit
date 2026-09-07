@@ -266,6 +266,50 @@ describe('OnboardingService', () => {
       await prisma.admissionDocument.deleteMany({ where: { userId: 'user-upload-a2' } });
     });
 
+    it('does NOT mark a requiresUpload task complete when one of the five kinds was rejected', async () => {
+      const task = await prisma.onboardingTask.create({
+        data: {
+          icon: 'cloud-upload-outline',
+          title: 'Enviar documentos 1c',
+          description: 'RG, CPF...',
+          order: 1,
+          requiresUpload: true,
+        },
+      });
+      const data = allAdmissionDocumentsData('user-upload-rejected');
+      await prisma.admissionDocument.createMany({
+        data: data.map((doc, i) => (i === 0 ? { ...doc, status: 'recusado' } : doc)),
+      });
+
+      const result = await service.getTasks('user-upload-rejected');
+
+      expect(result.completedTaskIds).not.toContain(task.id);
+
+      await prisma.admissionDocument.deleteMany({ where: { userId: 'user-upload-rejected' } });
+    });
+
+    it("still marks a requiresUpload task complete when a kind is only 'em_analise' (not yet reviewed)", async () => {
+      const task = await prisma.onboardingTask.create({
+        data: {
+          icon: 'cloud-upload-outline',
+          title: 'Enviar documentos 1d',
+          description: 'RG, CPF...',
+          order: 1,
+          requiresUpload: true,
+        },
+      });
+      const data = allAdmissionDocumentsData('user-upload-pending-review');
+      await prisma.admissionDocument.createMany({
+        data: data.map((doc, i) => (i === 0 ? { ...doc, status: 'em_analise' } : doc)),
+      });
+
+      const result = await service.getTasks('user-upload-pending-review');
+
+      expect(result.completedTaskIds).toContain(task.id);
+
+      await prisma.admissionDocument.deleteMany({ where: { userId: 'user-upload-pending-review' } });
+    });
+
     it('does not mark a requiresUpload task complete for a user with zero admission documents', async () => {
       const task = await prisma.onboardingTask.create({
         data: {
@@ -545,6 +589,34 @@ describe('OnboardingService', () => {
 
     it('isUnlocked is true (fail-open) when there are no onboarding tasks at all', async () => {
       expect(await service.isUnlocked('user-auto-no-tasks')).toBe(true);
+    });
+
+    it('does not auto-unlock while a required admission document is rejected, even with every other task done', async () => {
+      await prisma.onboardingTask.create({
+        data: {
+          icon: 'cloud-upload-outline',
+          title: 'Enviar documentos',
+          description: '...',
+          order: 1,
+          requiresUpload: true,
+        },
+      });
+      const data = ADMISSION_DOCUMENT_KINDS.map((kind) => ({
+        userId: 'user-auto-rejected',
+        kind,
+        title: kind,
+        photoUri: 'data:image/jpeg;base64,Zm9v',
+        status: kind === ADMISSION_DOCUMENT_KINDS[0] ? 'recusado' : 'enviado',
+      }));
+      await prisma.admissionDocument.createMany({ data });
+
+      await service.checkAutoUnlock('user-auto-rejected');
+
+      expect(await prisma.onboardingAccessGrant.findUnique({ where: { userId: 'user-auto-rejected' } })).toBeNull();
+      expect(await service.isUnlocked('user-auto-rejected')).toBe(false);
+      expect(notificationsMock.sendFullAccessGranted).not.toHaveBeenCalled();
+
+      await prisma.admissionDocument.deleteMany({ where: { userId: 'user-auto-rejected' } });
     });
   });
 });

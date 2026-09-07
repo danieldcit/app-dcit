@@ -14,11 +14,15 @@ export class OnboardingService {
     const [tasks, progress, admissionDocuments, accessItems, grant] = await Promise.all([
       this.prisma.onboardingTask.findMany({ orderBy: { order: 'asc' } }),
       this.prisma.onboardingProgress.findMany({ where: { userId } }),
-      this.prisma.admissionDocument.findMany({ where: { userId }, select: { kind: true } }),
+      this.prisma.admissionDocument.findMany({ where: { userId }, select: { kind: true, status: true } }),
       this.prisma.onboardingAccessItem.findMany({ where: { userId } }),
       this.prisma.onboardingAccessGrant.findUnique({ where: { userId } }),
     ]);
-    const submittedKinds = admissionDocuments.map((d) => d.kind);
+    // A rejected document doesn't count toward "submitted" — resubmission
+    // is required, same as it never counted before it was ever reviewed.
+    // "em_analise" (not yet reviewed) still counts, same as today: only a
+    // reviewer's rejection un-counts it.
+    const submittedKinds = admissionDocuments.filter((d) => d.status !== 'recusado').map((d) => d.kind);
     const completedAccessItems = accessItems.map((item) => item.itemKey);
     return {
       tasks,
@@ -56,10 +60,12 @@ export class OnboardingService {
     }
     const admissionDocuments = await this.prisma.admissionDocument.findMany({
       where: { userId: { in: employees.map((e) => e.userId) } },
-      select: { userId: true, kind: true },
+      select: { userId: true, kind: true, status: true },
     });
+    // Same "rejected doesn't count as submitted" rule as getTasks.
     const submittedKindsByUser = new Map<string, (string | null)[]>();
     for (const doc of admissionDocuments) {
+      if (doc.status === 'recusado') continue;
       const kinds = submittedKindsByUser.get(doc.userId) ?? [];
       kinds.push(doc.kind);
       submittedKindsByUser.set(doc.userId, kinds);
@@ -137,6 +143,9 @@ export class OnboardingService {
   //   have been submitted (from anywhere — the Documentos tab or this
   //   Onboarding task embed both write the same AdmissionDocument rows).
   //   Sending only one of the five (e.g. just RG) must NOT complete this.
+  //   Callers pre-filter out any kind whose current status is "recusado"
+  //   (see getTasks/listTeamProgress) — a rejected document needs
+  //   resubmission before it counts again, same as never having been sent.
   // - requiresAccessChecklist ("Configurar seus acessos"): every fixed
   //   ONBOARDING_ACCESS_ITEMS key has its own OnboardingAccessItem row.
   // Both are additive to (never a replacement for) the OnboardingProgress-
