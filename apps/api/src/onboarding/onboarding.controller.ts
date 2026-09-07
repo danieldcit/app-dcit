@@ -52,7 +52,14 @@ export class OnboardingController {
   @Roles('gestor', 'rh')
   @Post('equipe/:userId/liberar-acesso')
   @HttpCode(200)
-  grantFullAccess(@Param('userId') userId: string) {
-    return this.onboarding.grantFullAccess(userId);
+  grantFullAccess(@Param('userId') userId: string, @Req() req: AuthenticatedRequest) {
+    return this.onboarding.grantFullAccess(userId, req.user.name);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('meu-status')
+  async myStatus(@Req() req: AuthenticatedRequest) {
+    const unlocked = await this.onboarding.isUnlocked(req.user.sub);
+    return { unlocked };
   }
 }

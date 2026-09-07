@@ -14,6 +14,7 @@ const GUARDED_HANDLERS = [
   'listTeamProgress',
   'toggleAccessItem',
   'grantFullAccess',
+  'myStatus',
 ] as const;
 
 describe('OnboardingController guard metadata', () => {
@@ -58,6 +59,16 @@ describe('OnboardingController guard metadata', () => {
     expect(guards).toContain(RolesGuard);
     expect(roles).toEqual(['gestor', 'rh']);
   });
+
+  it('does NOT apply RolesGuard to myStatus (any authenticated role checks their own)', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      OnboardingController.prototype.myStatus,
+    ) as unknown[] | undefined;
+
+    expect(guards).not.toContain(RolesGuard);
+  });
 });
 
 describe('OnboardingController', () => {
@@ -68,6 +79,7 @@ describe('OnboardingController', () => {
     listTeamProgress: jest.fn(),
     toggleAccessItem: jest.fn(),
     grantFullAccess: jest.fn(),
+    isUnlocked: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -137,12 +149,25 @@ describe('OnboardingController', () => {
     expect(serviceMock.toggleAccessItem).not.toHaveBeenCalled();
   });
 
-  it('grants full access for the given userId', async () => {
-    serviceMock.grantFullAccess.mockResolvedValue({ grantedAt: new Date('2026-09-07') });
+  it('grants full access for the given userId, passing the granter name', async () => {
+    serviceMock.grantFullAccess.mockResolvedValue({
+      grantedAt: new Date('2026-09-07'),
+      source: 'manual',
+      grantedByName: 'Test User',
+    });
 
-    const result = await controller.grantFullAccess('user-2');
+    const result = await controller.grantFullAccess('user-2', requestAs('user-1'));
 
-    expect(serviceMock.grantFullAccess).toHaveBeenCalledWith('user-2');
-    expect(result).toEqual({ grantedAt: new Date('2026-09-07') });
+    expect(serviceMock.grantFullAccess).toHaveBeenCalledWith('user-2', 'Test User');
+    expect(result).toEqual({ grantedAt: new Date('2026-09-07'), source: 'manual', grantedByName: 'Test User' });
+  });
+
+  it("gets the authenticated user's own onboarding unlock status", async () => {
+    serviceMock.isUnlocked.mockResolvedValue(true);
+
+    const result = await controller.myStatus(requestAs('user-1'));
+
+    expect(serviceMock.isUnlocked).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual({ unlocked: true });
   });
 });
