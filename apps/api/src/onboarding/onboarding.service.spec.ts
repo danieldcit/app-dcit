@@ -431,20 +431,10 @@ describe('OnboardingService', () => {
       expect(result.completedAccessItems).toEqual(expect.arrayContaining([...ONBOARDING_ACCESS_ITEMS]));
       expect(result.completedTaskIds).toContain(task.id);
 
-      // Completing the only task in the table also fires the new
-      // auto-unlock side effect (Task 2 of the access-gating plan) — assert
-      // it here since this is the one existing test that exercises "last
-      // task just completed" through the toggle path.
-      expect(await prisma.onboardingAccessGrant.findUnique({ where: { userId: 'user-access-c' } })).toMatchObject({
-        source: 'auto',
-      });
-
       // Unchecking any single item must flip the derived task back to incomplete.
       await service.toggleAccessItem('user-access-c', ONBOARDING_ACCESS_ITEMS[0]);
       const afterUncheck = await service.getTasks('user-access-c');
       expect(afterUncheck.completedTaskIds).not.toContain(task.id);
-
-      await prisma.onboardingAccessGrant.deleteMany({ where: { userId: 'user-access-c' } });
     });
   });
 
@@ -477,16 +467,16 @@ describe('OnboardingService', () => {
       expect(notificationsMock.sendFullAccessGranted).toHaveBeenCalledTimes(1);
     });
 
-    it('does not overwrite an existing auto grant with a manual one', async () => {
-      const task = await prisma.onboardingTask.create({
-        data: { icon: 'key-outline', title: 'Assistir ao vídeo', description: '...', order: 1 },
+    it('does not overwrite an existing grant (any source) with a new manual one', async () => {
+      await prisma.onboardingAccessGrant.create({
+        data: { userId: 'user-grant-c', source: 'auto' },
       });
-      await prisma.onboardingProgress.create({ data: { userId: 'user-grant-c', taskId: task.id } });
-      await service.checkAutoUnlock('user-grant-c');
 
       const result = await service.grantFullAccess('user-grant-c', 'Carla RH');
 
       expect(result).toMatchObject({ source: 'auto', grantedByName: null });
+
+      await prisma.onboardingAccessGrant.deleteMany({ where: { userId: 'user-grant-c' } });
     });
 
     it('reflects fullAccessGrantedAt (null, then set) in listTeamProgress', async () => {
@@ -512,7 +502,7 @@ describe('OnboardingService', () => {
     });
   });
 
-  describe('checkAutoUnlock and isUnlocked', () => {
+  describe('isUnlocked', () => {
     // Same per-case reset reasoning as the describe blocks above:
     // getTasks/isUnlocked see every OnboardingTask row system-wide.
     beforeEach(async () => {
@@ -521,11 +511,11 @@ describe('OnboardingService', () => {
 
     afterEach(async () => {
       await prisma.onboardingAccessGrant.deleteMany({
-        where: { userId: { in: ['user-auto-a', 'user-auto-b', 'user-auto-c'] } },
+        where: { userId: { in: ['user-auto-a', 'user-auto-b'] } },
       });
     });
 
-    it('isUnlocked is false with no grant and an incomplete track', async () => {
+    it('is false with no grant, even with an incomplete track', async () => {
       await prisma.onboardingTask.create({
         data: { icon: 'key-outline', title: 'Assinar o contrato', description: '...', order: 1 },
       });
@@ -533,90 +523,29 @@ describe('OnboardingService', () => {
       expect(await service.isUnlocked('user-auto-a')).toBe(false);
     });
 
-    it('checkAutoUnlock does nothing while the track is incomplete', async () => {
-      const task = await prisma.onboardingTask.create({
-        data: { icon: 'key-outline', title: 'Assinar o contrato', description: '...', order: 1 },
-      });
-      await prisma.onboardingTask.create({
-        data: { icon: 'key-outline', title: 'Enviar documentos', description: '...', order: 2 },
-      });
-      await prisma.onboardingProgress.create({ data: { userId: 'user-auto-a', taskId: task.id } });
-
-      await service.checkAutoUnlock('user-auto-a');
-
-      expect(await prisma.onboardingAccessGrant.findUnique({ where: { userId: 'user-auto-a' } })).toBeNull();
-      expect(await service.isUnlocked('user-auto-a')).toBe(false);
-    });
-
-    it('checkAutoUnlock creates an auto grant and notifies once the track is complete', async () => {
+    // The core reversal this describe block exists to pin down: completing
+    // every task no longer unlocks anything by itself — gestor/rh must
+    // always call grantFullAccess, whether before or after the track is done.
+    it('is false even once every task is complete — only grantFullAccess unlocks', async () => {
       const task = await prisma.onboardingTask.create({
         data: { icon: 'key-outline', title: 'Assinar o contrato', description: '...', order: 1 },
       });
       await prisma.onboardingProgress.create({ data: { userId: 'user-auto-b', taskId: task.id } });
 
-      await service.checkAutoUnlock('user-auto-b');
+      expect(await service.isUnlocked('user-auto-b')).toBe(false);
 
-      const grant = await prisma.onboardingAccessGrant.findUnique({ where: { userId: 'user-auto-b' } });
-      expect(grant).toMatchObject({ source: 'auto', grantedByName: null });
-      expect(notificationsMock.sendFullAccessGranted).toHaveBeenCalledWith('user-auto-b');
+      await service.grantFullAccess('user-auto-b', 'Carla RH');
+
       expect(await service.isUnlocked('user-auto-b')).toBe(true);
     });
 
-    it('checkAutoUnlock is a no-op if a grant already exists (does not re-notify or overwrite it)', async () => {
-      const task = await prisma.onboardingTask.create({
-        data: { icon: 'key-outline', title: 'Assinar o contrato', description: '...', order: 1 },
-      });
-      await prisma.onboardingProgress.create({ data: { userId: 'user-auto-c', taskId: task.id } });
-      await prisma.onboardingAccessGrant.create({
-        data: { userId: 'user-auto-c', source: 'manual', grantedByName: 'Carla RH' },
-      });
-
-      await service.checkAutoUnlock('user-auto-c');
-
-      const grant = await prisma.onboardingAccessGrant.findUnique({ where: { userId: 'user-auto-c' } });
-      expect(grant).toMatchObject({ source: 'manual', grantedByName: 'Carla RH' });
-      expect(notificationsMock.sendFullAccessGranted).not.toHaveBeenCalled();
-    });
-
-    it('isUnlocked is true once a grant exists, even before checkAutoUnlock is called', async () => {
+    it('is true once a grant exists, regardless of task completion', async () => {
       await prisma.onboardingTask.create({
         data: { icon: 'key-outline', title: 'Assinar o contrato', description: '...', order: 1 },
       });
       await prisma.onboardingAccessGrant.create({ data: { userId: 'user-auto-a', source: 'manual' } });
 
       expect(await service.isUnlocked('user-auto-a')).toBe(true);
-    });
-
-    it('isUnlocked is true (fail-open) when there are no onboarding tasks at all', async () => {
-      expect(await service.isUnlocked('user-auto-no-tasks')).toBe(true);
-    });
-
-    it('does not auto-unlock while a required admission document is rejected, even with every other task done', async () => {
-      await prisma.onboardingTask.create({
-        data: {
-          icon: 'cloud-upload-outline',
-          title: 'Enviar documentos',
-          description: '...',
-          order: 1,
-          requiresUpload: true,
-        },
-      });
-      const data = ADMISSION_DOCUMENT_KINDS.map((kind) => ({
-        userId: 'user-auto-rejected',
-        kind,
-        title: kind,
-        photoUri: 'data:image/jpeg;base64,Zm9v',
-        status: kind === ADMISSION_DOCUMENT_KINDS[0] ? 'recusado' : 'enviado',
-      }));
-      await prisma.admissionDocument.createMany({ data });
-
-      await service.checkAutoUnlock('user-auto-rejected');
-
-      expect(await prisma.onboardingAccessGrant.findUnique({ where: { userId: 'user-auto-rejected' } })).toBeNull();
-      expect(await service.isUnlocked('user-auto-rejected')).toBe(false);
-      expect(notificationsMock.sendFullAccessGranted).not.toHaveBeenCalled();
-
-      await prisma.admissionDocument.deleteMany({ where: { userId: 'user-auto-rejected' } });
     });
   });
 });

@@ -5,7 +5,6 @@ import { DocumentosService } from './documentos.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ExpoPushService } from '../push/expo-push.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { OnboardingService } from '../onboarding/onboarding.service';
 
 const PHOTO_DATA_URL = 'data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh';
 const PDF_DATA_URL = 'data:application/pdf;base64,ZmFrZS1wZGYtZGF0YQ==';
@@ -18,8 +17,6 @@ describe('DocumentosService', () => {
     sendDocumentSubmitted: jest.fn(),
     sendDocumentStatusChanged: jest.fn(),
   };
-  const onboardingMock = { checkAutoUnlock: jest.fn() };
-
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -27,7 +24,6 @@ describe('DocumentosService', () => {
         PrismaService,
         { provide: ExpoPushService, useValue: pushMock },
         { provide: NotificationsService, useValue: notificationsMock },
-        { provide: OnboardingService, useValue: onboardingMock },
       ],
     }).compile();
 
@@ -234,7 +230,6 @@ describe('DocumentosService', () => {
     expect(results[0].title).toBe('Comprovante de endereço');
     expect(results[0].status).toBe('enviado');
     expect(results[0]).not.toHaveProperty('photoUri');
-    expect(onboardingMock.checkAutoUnlock).toHaveBeenCalledWith('user-c');
   });
 
   it('notifies gestor/rh after creating an admission document', async () => {
@@ -411,7 +406,6 @@ describe('DocumentosService', () => {
   describe('signed contract', () => {
     it('submits a signed contract, notifies gestor/rh, and resubmitting replaces the file instead of creating a second row', async () => {
       const first = await service.submitSignedContract('user-contract-a', 'Ana Contrato', PDF_DATA_URL);
-      expect(onboardingMock.checkAutoUnlock).toHaveBeenCalledWith('user-contract-a');
       expect(first.submittedAt).toBeInstanceOf(Date);
       expect(notificationsMock.sendDocumentSubmitted).toHaveBeenCalledWith(
         'contrato',

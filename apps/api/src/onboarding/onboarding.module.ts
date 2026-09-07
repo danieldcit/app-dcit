@@ -8,6 +8,5 @@ import { NotificationsModule } from '../notifications/notifications.module';
   imports: [AuthModule, NotificationsModule],
   controllers: [OnboardingController],
   providers: [OnboardingService],
-  exports: [OnboardingService],
 })
 export class OnboardingModule {}

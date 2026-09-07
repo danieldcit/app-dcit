@@ -93,12 +93,13 @@ export class OnboardingService {
     });
   }
 
-  // Manual exception gestor/rh can trigger at any time, complete or not —
-  // checkAutoUnlock already covers the "finished everything" case on its
-  // own, so every call that reaches here that actually creates a row is,
-  // by definition, unlocking someone early. Idempotent either way: once a
-  // grant exists (auto or manual), re-calling this returns it unchanged
-  // rather than re-notifying or overwriting its source.
+  // The only way full access is ever granted — completing every onboarding
+  // task no longer unlocks by itself (reverted per explicit request: gestor/rh
+  // must always take this action, whether the colaborador has finished
+  // everything yet or not). A gestor/rh calling this after the colaborador
+  // already finished is the normal "formalize it" path; calling it before
+  // is the early exception. Idempotent: once a grant exists, re-calling
+  // this returns it unchanged rather than re-notifying or overwriting it.
   async grantFullAccess(userId: string, granterName: string) {
     const existing = await this.prisma.onboardingAccessGrant.findUnique({ where: { userId } });
     if (existing) {
@@ -112,29 +113,11 @@ export class OnboardingService {
     return { grantedAt: grant.grantedAt, source: grant.source, grantedByName: grant.grantedByName };
   }
 
-  // Called after any mutation that could complete the track (the two
-  // toggles below, plus DocumentosService's admission-document and
-  // signed-contract writes — see Task 6). Idempotent: does nothing if a
-  // grant already exists (auto or manual) or the track isn't complete yet.
-  async checkAutoUnlock(userId: string): Promise<void> {
-    const { tasks, completedTaskIds } = await this.getTasks(userId);
-    if (completedTaskIds.length < tasks.length) return;
-
-    const existing = await this.prisma.onboardingAccessGrant.findUnique({ where: { userId } });
-    if (existing) return;
-
-    await this.prisma.onboardingAccessGrant.create({ data: { userId, source: 'auto' } });
-    await this.notifications.sendFullAccessGranted(userId);
-  }
-
-  // Checks both signals rather than trusting the grant row alone — same
-  // defensive-derivation spirit as mergeDerivedCompletion treating
-  // completion as a fact to recompute, not just stored state.
+  // Access is unlocked only once gestor/rh explicitly grants it — finishing
+  // every task no longer unlocks on its own (see grantFullAccess).
   async isUnlocked(userId: string): Promise<boolean> {
     const grant = await this.prisma.onboardingAccessGrant.findUnique({ where: { userId } });
-    if (grant) return true;
-    const { tasks, completedTaskIds } = await this.getTasks(userId);
-    return tasks.length === 0 || completedTaskIds.length === tasks.length;
+    return grant !== null;
   }
 
   // Two tasks are never toggled by hand, derived instead — both require
@@ -202,7 +185,6 @@ export class OnboardingService {
     if (task) {
       await this.notifications.sendOnboardingTaskCompleted(task.title, userId, userName);
     }
-    await this.checkAutoUnlock(userId);
     return { completed: true };
   }
 
@@ -222,7 +204,6 @@ export class OnboardingService {
     }
 
     await this.prisma.onboardingAccessItem.create({ data: { userId, itemKey } });
-    await this.checkAutoUnlock(userId);
     return { completed: true };
   }
 }

@@ -50,35 +50,55 @@ export function ColaboradorOnboarding({
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [pendingAccessItem, setPendingAccessItem] = useState<string | null>(null);
-  const congratsDialogRef = useRef<HTMLDialogElement>(null);
-  // Only mounted once the unlock transition fires (see below) — kept out of
-  // the DOM entirely the rest of the time, rather than always-mounted and
-  // toggled via showModal()/close(), so the congrats text isn't sitting in
-  // the DOM (just display:none) for e2e assertions to accidentally match.
-  const [showCongratsDialog, setShowCongratsDialog] = useState(false);
-  // Tracks the prop across renders, not local UI state — the transition
-  // null -> a value is what means "just unlocked", so this must reflect
-  // what the server told us last render, not a value the modal itself set.
-  const previousGrantedAt = useRef(fullAccessGrantedAt);
-
-  useEffect(() => {
-    if (!previousGrantedAt.current && fullAccessGrantedAt) {
-      setShowCongratsDialog(true);
-    }
-    previousGrantedAt.current = fullAccessGrantedAt;
-  }, [fullAccessGrantedAt]);
-
-  useEffect(() => {
-    if (showCongratsDialog) {
-      congratsDialogRef.current?.showModal();
-    }
-  }, [showCongratsDialog]);
 
   // Derived fresh from props every render (never copied into local state) —
   // both the toggle action and AdmissionDocumentBox's router.refresh() cause
   // this Server Component's props to update, and a stale local copy would
   // silently stop matching the server's actual completion state.
   const done = new Set(completedTaskIds);
+  const isComplete = tasks.length > 0 && done.size === tasks.length;
+
+  // Two independent transitions, each with its own dialog — finishing every
+  // task no longer unlocks anything by itself (gestor/rh must always grant
+  // it, see onboarding-row.tsx), so "just finished" and "just unlocked" are
+  // now genuinely separate events that can happen in either order:
+  // gestor/rh may grant access early (before the track is done) or only
+  // after, once the colaborador has already seen the "aguarde" dialog.
+  const completionDialogRef = useRef<HTMLDialogElement>(null);
+  const unlockedDialogRef = useRef<HTMLDialogElement>(null);
+  // Both kept out of the DOM entirely until their transition fires, rather
+  // than always-mounted and toggled via showModal()/close(), so neither
+  // dialog's text sits in the DOM (just display:none) for e2e assertions to
+  // accidentally match.
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [showUnlockedDialog, setShowUnlockedDialog] = useState(false);
+  // Track the previous render's values, not local UI state — the
+  // transition is what triggers each dialog, so these must reflect what the
+  // server told us last render, not a value a dialog itself set.
+  const previousIsComplete = useRef(isComplete);
+  const previousGrantedAt = useRef(fullAccessGrantedAt);
+
+  useEffect(() => {
+    if (!previousIsComplete.current && isComplete && !fullAccessGrantedAt) {
+      setShowCompletionDialog(true);
+    }
+    previousIsComplete.current = isComplete;
+  }, [isComplete, fullAccessGrantedAt]);
+
+  useEffect(() => {
+    if (!previousGrantedAt.current && fullAccessGrantedAt) {
+      setShowUnlockedDialog(true);
+    }
+    previousGrantedAt.current = fullAccessGrantedAt;
+  }, [fullAccessGrantedAt]);
+
+  useEffect(() => {
+    if (showCompletionDialog) completionDialogRef.current?.showModal();
+  }, [showCompletionDialog]);
+
+  useEffect(() => {
+    if (showUnlockedDialog) unlockedDialogRef.current?.showModal();
+  }, [showUnlockedDialog]);
   const byKind = new Map(
     admissionDocuments.filter((doc) => doc.kind).map((doc) => [doc.kind as string, doc]),
   );
@@ -248,9 +268,27 @@ export function ColaboradorOnboarding({
         })}
       </ul>
 
-      {showCongratsDialog ? (
-        <dialog ref={congratsDialogRef} className={styles.dialog}>
+      {showCompletionDialog ? (
+        <dialog ref={completionDialogRef} className={styles.dialog}>
           <p className={styles.dialogTitle}>🎉 Parabéns! Onboarding concluído</p>
+          <p className={styles.itemDetail}>
+            Aguarde o gestor ou RH liberar seu acesso completo ao portal.
+          </p>
+          <div className={styles.dialogActions}>
+            <button
+              type="button"
+              className={styles.dialogClose}
+              onClick={() => completionDialogRef.current?.close()}
+            >
+              Fechar
+            </button>
+          </div>
+        </dialog>
+      ) : null}
+
+      {showUnlockedDialog ? (
+        <dialog ref={unlockedDialogRef} className={styles.dialog}>
+          <p className={styles.dialogTitle}>🎉 Acesso liberado!</p>
           <p className={styles.itemDetail}>Seu acesso total ao SGP Portal foi liberado.</p>
           <div className={styles.dialogActions}>
             <a href="/" className={styles.grantAccessButton}>

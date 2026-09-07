@@ -113,9 +113,9 @@ export function OnboardingRow({ entry }: { entry: TeamProgress }) {
       <dialog ref={confirmDialogRef} className={styles.dialog}>
         <p className={styles.dialogTitle}>Liberar acesso total ao SGP Portal para {entry.userName}?</p>
         <p className={styles.itemDetail}>
-          {entry.userName} ainda não completou o onboarding ({entry.completedCount} de{" "}
-          {entry.totalCount}). Essa é uma exceção manual — o colaborador ganha acesso completo ao
-          portal mesmo assim.
+          {complete
+            ? `${entry.userName} concluiu todas as etapas do onboarding — essa ação libera o acesso completo ao portal.`
+            : `${entry.userName} ainda não completou o onboarding (${entry.completedCount} de ${entry.totalCount}). Essa é uma exceção manual — o colaborador ganha acesso completo ao portal mesmo assim.`}
         </p>
         <div className={styles.dialogActions}>
           <button

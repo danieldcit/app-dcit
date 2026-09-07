@@ -131,6 +131,36 @@ test("the 'Liberar acesso total ao SGP Portal' button is clickable even with pen
     .toBe(true);
 });
 
+test("the confirmation dialog wording reflects a colaborador who already finished everything", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context);
+  await mockApi(request, {
+    onboardingProgress: [
+      {
+        userId: "user-1",
+        userName: "Diana Colaboradora",
+        completedCount: 2,
+        totalCount: 2,
+        tasks: GESTOR_VIEW_TASKS,
+        completedTaskIds: ["task-1", "task-2"],
+        fullAccessGrantedAt: null,
+        fullAccessGrantSource: null,
+        fullAccessGrantedByName: null,
+      },
+    ],
+  });
+
+  await page.goto("/onboarding");
+  await page.getByRole("button", { name: /Diana Colaboradora/ }).click();
+  await page.getByRole("button", { name: "Liberar acesso total ao SGP Portal" }).click();
+
+  await expect(page.getByText(/concluiu todas as etapas do onboarding/)).toBeVisible();
+  await expect(page.getByText(/ainda não completou o onboarding/)).toHaveCount(0);
+});
+
 test("shows the grant origin once full access has already been granted, and the button is gone", async ({
   page,
   context,
@@ -523,11 +553,14 @@ test("toggling a non-upload task calls the toggle endpoint", async ({ page, cont
     .toBe(true);
 });
 
-test("completing the last task shows a congratulations modal with a link to the dashboard", async ({
+test("completing the last task shows a 'wait for gestor/rh' dialog, not an unlock", async ({
   page,
   context,
   request,
 }) => {
+  // Reversed per explicit request: finishing every task no longer unlocks
+  // anything by itself — gestor/rh must always grant access (see
+  // onboarding-row.tsx), whether before or after completion.
   await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
   await mockApi(request, { myAdmissionDocuments: [] });
   await seedResponse(request, {
@@ -559,7 +592,7 @@ test("completing the last task shows a congratulations modal with a link to the 
       tasks: [{ id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false }],
       completedTaskIds: ["task-1"],
       completedAccessItems: [],
-      fullAccessGrantedAt: "2026-09-07T12:00:00.000Z",
+      fullAccessGrantedAt: null,
     },
   });
 
@@ -567,10 +600,11 @@ test("completing the last task shows a congratulations modal with a link to the 
   await taskItem.click();
 
   await expect(page.getByText("Parabéns! Onboarding concluído")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Ir para o Dashboard" })).toHaveAttribute("href", "/");
+  await expect(page.getByText("Aguarde o gestor ou RH liberar seu acesso completo ao portal.")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ir para o Dashboard" })).toHaveCount(0);
 });
 
-test("does not show the congratulations modal on a fresh load that is already unlocked", async ({
+test("does not show the completion dialog on a fresh load that was already complete before", async ({
   page,
   context,
   request,
@@ -584,13 +618,129 @@ test("does not show the congratulations modal on a fresh load that is already un
       tasks: [{ id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false }],
       completedTaskIds: ["task-1"],
       completedAccessItems: [],
-      fullAccessGrantedAt: "2026-09-06T12:00:00.000Z",
+      fullAccessGrantedAt: null,
     },
   });
 
   await page.goto("/onboarding");
 
   await expect(page.getByText("Parabéns", { exact: false })).toHaveCount(0);
+});
+
+test("shows an 'access unlocked' dialog when fullAccessGrantedAt transitions to set", async ({
+  page,
+  context,
+  request,
+}) => {
+  // Covers both real paths this can happen: gestor/rh granting the early
+  // exception before completion, or formalizing it after — either way this
+  // is the one event that actually means "you're unlocked now". Uses a
+  // second, still-incomplete task's own access-item toggle purely as the
+  // vehicle to force a same-page refetch (a full page.reload() would
+  // re-mount the component with the new value already as its initial ref,
+  // never observing a transition — this must happen without unmounting).
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [
+        { id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false },
+        {
+          id: "task-2",
+          title: "Configurar seus acessos",
+          description: "E-mail, Teams...",
+          requiresUpload: false,
+          requiresAccessChecklist: true,
+        },
+      ],
+      completedTaskIds: ["task-1"],
+      completedAccessItems: [],
+      fullAccessGrantedAt: null,
+    },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/onboarding/acessos/teams/toggle",
+    response: { completed: true },
+  });
+
+  await page.goto("/onboarding");
+  await expect(page.getByText("Acesso liberado", { exact: false })).toHaveCount(0);
+
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [
+        { id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false },
+        {
+          id: "task-2",
+          title: "Configurar seus acessos",
+          description: "E-mail, Teams...",
+          requiresUpload: false,
+          requiresAccessChecklist: true,
+        },
+      ],
+      completedTaskIds: ["task-1"],
+      completedAccessItems: ["teams"],
+      fullAccessGrantedAt: "2026-09-07T12:00:00.000Z",
+    },
+  });
+
+  await page.getByText("Configurar seus acessos").click();
+  const taskItem = page.locator("li").filter({ has: page.getByText("Configurar seus acessos") });
+  const teamsItem = taskItem.locator("li").filter({ has: page.getByText("Teams", { exact: true }) });
+  await teamsItem.getByRole("button", { name: "Pendente" }).click();
+
+  await expect(page.getByText("🎉 Acesso liberado!")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Ir para o Dashboard" })).toHaveAttribute("href", "/");
+  // The still-incomplete track (1 of 2) must not also trigger the
+  // completion-waiting dialog alongside the unlock one.
+  await expect(page.getByText("Parabéns! Onboarding concluído")).toHaveCount(0);
+});
+
+test("does not show the completion dialog if access was already granted before the last task finished", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, { myAdmissionDocuments: [] });
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [{ id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false }],
+      completedTaskIds: [],
+      completedAccessItems: [],
+      fullAccessGrantedAt: "2026-09-06T12:00:00.000Z",
+    },
+  });
+  await seedResponse(request, {
+    method: "POST",
+    path: "/onboarding/tarefas/task-1/toggle",
+    response: { completed: true },
+  });
+
+  await page.goto("/onboarding");
+
+  await seedResponse(request, {
+    method: "GET",
+    path: "/onboarding/tarefas",
+    response: {
+      tasks: [{ id: "task-1", title: "Assinar o contrato", description: "Revise e assine.", requiresUpload: false }],
+      completedTaskIds: ["task-1"],
+      completedAccessItems: [],
+      fullAccessGrantedAt: "2026-09-06T12:00:00.000Z",
+    },
+  });
+  const taskItem = page.locator("li", { hasText: "Assinar o contrato" });
+  await taskItem.click();
+
+  await expect(page.getByText("Parabéns", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("Acesso liberado", { exact: false })).toHaveCount(0);
 });
 
 test("the Configurar seus acessos task expands to 5 independently toggleable items", async ({
