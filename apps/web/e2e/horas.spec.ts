@@ -23,7 +23,7 @@ test("gestor sees Horas in the sidebar and the page loads with period tabs", asy
   await addSessionCookie(context);
   await mockApi(request, {
     employees: [{ userId: "colab-1", name: "Colaborador Um" }],
-    horasResumo: [{ userId: "colab-1", name: "Colaborador Um", horasTrabalhadas: 0, horasTickets: 0 }],
+    horasResumo: [{ userId: "colab-1", name: "Colaborador Um", horasTrabalhadas: 0, horasExtras: 0, horasTickets: 0 }],
   });
 
   await page.goto("/");
@@ -51,12 +51,11 @@ test("gestor lança horas for a colaborador and sees it in the history list", as
   await addSessionCookie(context);
   await mockApi(request, {
     employees: [{ userId: "colab-1", name: "Colaborador Um" }],
-    horasResumo: [{ userId: "colab-1", name: "Colaborador Um", horasTrabalhadas: 0, horasTickets: 0 }],
+    horasResumo: [{ userId: "colab-1", name: "Colaborador Um", horasTrabalhadas: 0, horasExtras: 0, horasTickets: 0 }],
   });
 
   await page.goto("/horas");
   await page.locator('select[name="userId"]').selectOption("colab-1");
-  await page.locator('input[name="horasTrabalhadas"]').fill("8");
   await page.locator('input[name="horasTickets"]').fill("6");
   await page.getByRole("button", { name: "Lançar" }).click();
 
@@ -66,12 +65,14 @@ test("gestor lança horas for a colaborador and sees it in the history list", as
   // it doesn't feed back into GET /horas).
   await mockApi(request, {
     employees: [{ userId: "colab-1", name: "Colaborador Um" }],
-    horasResumo: [{ userId: "colab-1", name: "Colaborador Um", horasTrabalhadas: 8, horasTickets: 6 }],
+    horasResumo: [{ userId: "colab-1", name: "Colaborador Um", horasTrabalhadas: 8, horasExtras: 0, horasTickets: 6 }],
   });
   await request.post("http://localhost:3000/__seed", {
     data: {
       path: "/horas",
-      response: [{ id: "entry-1", date: "2026-09-03T00:00:00.000Z", horasTrabalhadas: 8, horasTickets: 6 }],
+      response: [
+        { date: "2026-09-03", horasTrabalhadas: 8, horasExtras: 0, horasTickets: 6, ticketEntryId: "entry-1" },
+      ],
     },
   });
 

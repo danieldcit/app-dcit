@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 
 import styles from "./horas.module.css";
 
-type HorasResumoItem = { userId: string; name: string; horasTrabalhadas: number; horasTickets: number };
+type HorasResumoItem = { userId: string; name: string; horasTrabalhadas: number; horasExtras: number; horasTickets: number };
 
-const CHART_HEIGHT = 130;
-const BAR_WIDTH = 30;
-const BAR_GAP = 24;
-const LABEL_HEIGHT = 28;
+const CHART_HEIGHT = 240;
+const BAR_WIDTH = 50;
+const BAR_GAP = 44;
+const LABEL_HEIGHT = 34;
 
 // A rotated label doesn't just reach left of its pivot — it also reaches
 // *down* past it (rotate(-35, ...) on a text-anchor="end" string moves
@@ -41,12 +41,12 @@ const LABEL_HEIGHT = 28;
 // original -35° trades a little horizontal room for a lot less vertical
 // reach — the whole page has to fit one screen without scrolling, and
 // vertical space is the scarcer budget here.
-const AVG_CHAR_WIDTH_PX = 6;
+const AVG_CHAR_WIDTH_PX = 8.5;
 const ROTATION_DEGREES = 25;
 const ROTATION_RADIANS = (ROTATION_DEGREES * Math.PI) / 180;
-const MARGIN_BUFFER_PX = 10;
-const MIN_AXIS_LABEL_WIDTH = 48;
-const MIN_LABEL_BOTTOM_MARGIN = 50;
+const MARGIN_BUFFER_PX = 14;
+const MIN_AXIS_LABEL_WIDTH = 64;
+const MIN_LABEL_BOTTOM_MARGIN = 70;
 
 function computeLabelMargins(names: string[]): { axisLabelWidth: number; labelBottomMargin: number } {
   const maxNameLength = names.reduce((max, name) => Math.max(max, name.length), 0);
@@ -62,18 +62,26 @@ function computeLabelMargins(names: string[]): { axisLabelWidth: number; labelBo
 // Rounds only the top two corners of a bar (square baseline) — a plain
 // `rx` on a <rect> would round all four, which reads wrong for a bar that
 // grows from a shared baseline (mark spec: "4px rounded data-end, square
-// at the baseline").
+// at the baseline"). radius 0 draws a plain rect — used for the bottom
+// (Trabalhadas) segment of a stack when the Extras segment sits on top of
+// it, since only whichever segment visually caps the stack gets rounded.
 function roundedTopRectPath(x: number, y: number, width: number, height: number, radius: number): string {
   if (height <= 0) return "";
   const r = Math.min(radius, width / 2, height);
   return `M${x},${y + height} L${x},${y + r} Q${x},${y} ${x + r},${y} L${x + width - r},${y} Q${x + width},${y} ${x + width},${y + r} L${x + width},${y + height} Z`;
 }
 
+type SeriesKey = "trabalhadas" | "extras" | "tickets";
+
 export function HorasChart({ data, metaTickets }: { data: HorasResumoItem[]; metaTickets?: number }) {
   const [hoveredUserId, setHoveredUserId] = useState<string | null>(null);
-  const [visibleSeries, setVisibleSeries] = useState({ trabalhadas: true, tickets: true });
+  const [visibleSeries, setVisibleSeries] = useState<Record<SeriesKey, boolean>>({
+    trabalhadas: true,
+    extras: true,
+    tickets: true,
+  });
 
-  function toggleSeries(key: "trabalhadas" | "tickets") {
+  function toggleSeries(key: SeriesKey) {
     setVisibleSeries((current) => ({ ...current, [key]: !current[key] }));
   }
 
@@ -81,8 +89,10 @@ export function HorasChart({ data, metaTickets }: { data: HorasResumoItem[]; met
   // any) regardless of which series is toggled off — recomputing it on
   // toggle would make the chart visibly jump/rescale every time a legend
   // item is clicked, which reads as broken rather than as "hiding a series".
+  // Trabalhadas+Extras stack, so the bar's full height is their sum, not
+  // either value alone.
   const maxValue = useMemo(() => {
-    const allValues = data.flatMap((item) => [item.horasTrabalhadas, item.horasTickets]);
+    const allValues = data.flatMap((item) => [item.horasTrabalhadas + item.horasExtras, item.horasTickets]);
     if (metaTickets !== undefined) allValues.push(metaTickets);
     const max = Math.max(0, ...allValues);
     return max === 0 ? 10 : Math.ceil(max / 10) * 10;
@@ -138,6 +148,15 @@ export function HorasChart({ data, metaTickets }: { data: HorasResumoItem[]; met
         </button>
         <button
           type="button"
+          className={visibleSeries.extras ? styles.legendItem : `${styles.legendItem} ${styles.legendItemHidden}`}
+          onClick={() => toggleSeries("extras")}
+          aria-pressed={visibleSeries.extras}
+        >
+          <span className={`${styles.legendSwatch} ${styles.legendSwatchExtras}`} />
+          Horas Extras
+        </button>
+        <button
+          type="button"
           className={visibleSeries.tickets ? styles.legendItem : `${styles.legendItem} ${styles.legendItemHidden}`}
           onClick={() => toggleSeries("tickets")}
           aria-pressed={visibleSeries.tickets}
@@ -153,13 +172,13 @@ export function HorasChart({ data, metaTickets }: { data: HorasResumoItem[]; met
           height={totalHeight}
           className={styles.chartSvg}
           role="img"
-          aria-label="Gráfico de horas trabalhadas e horas lançadas em tickets por colaborador"
+          aria-label="Gráfico de horas trabalhadas, horas extras e horas lançadas em tickets por colaborador"
         >
           <g transform={`translate(${AXIS_LABEL_WIDTH}, 0)`}>
             {yTicks.map((tick) => (
               <g key={tick}>
                 <line x1={0} x2={chartWidth} y1={scaleY(tick)} y2={scaleY(tick)} className={styles.gridline} />
-                <text x={-8} y={scaleY(tick)} textAnchor="end" dominantBaseline="middle" className={styles.axisLabel}>
+                <text x={-12} y={scaleY(tick)} textAnchor="end" dominantBaseline="middle" className={styles.axisLabel}>
                   {tick}
                 </text>
               </g>
@@ -167,8 +186,11 @@ export function HorasChart({ data, metaTickets }: { data: HorasResumoItem[]; met
 
             {data.map((item, index) => {
               const x = BAR_GAP + index * (BAR_WIDTH + BAR_GAP);
-              const barY = scaleY(item.horasTrabalhadas);
-              const barHeight = plotHeight - barY;
+              const shownTrabalhadas = visibleSeries.trabalhadas ? item.horasTrabalhadas : 0;
+              const shownExtras = visibleSeries.extras ? item.horasExtras : 0;
+              const trabalhadasTopY = scaleY(shownTrabalhadas);
+              const totalTopY = scaleY(shownTrabalhadas + shownExtras);
+              const trabalhadasIsCap = shownExtras === 0;
               const isHovered = hoveredUserId === item.userId;
               return (
                 <g
@@ -177,26 +199,41 @@ export function HorasChart({ data, metaTickets }: { data: HorasResumoItem[]; met
                   onMouseLeave={() => setHoveredUserId((current) => (current === item.userId ? null : current))}
                 >
                   <rect x={x} y={0} width={BAR_WIDTH} height={plotHeight} fill="transparent" />
-                  {visibleSeries.trabalhadas ? (
-                    <>
-                      <path d={roundedTopRectPath(x, barY, BAR_WIDTH, barHeight, 4)} className={styles.bar} />
-                      <text x={x + BAR_WIDTH / 2} y={barY - 6} textAnchor="middle" className={styles.barValueLabel}>
-                        {item.horasTrabalhadas}
-                      </text>
-                    </>
+                  {shownTrabalhadas > 0 ? (
+                    <path
+                      d={roundedTopRectPath(x, trabalhadasTopY, BAR_WIDTH, plotHeight - trabalhadasTopY, trabalhadasIsCap ? 6 : 0)}
+                      className={styles.bar}
+                    />
+                  ) : null}
+                  {shownExtras > 0 ? (
+                    <path
+                      d={roundedTopRectPath(x, totalTopY, BAR_WIDTH, trabalhadasTopY - totalTopY, 6)}
+                      className={styles.barExtra}
+                    />
+                  ) : null}
+                  {shownTrabalhadas + shownExtras > 0 ? (
+                    <text x={x + BAR_WIDTH / 2} y={totalTopY - 8} textAnchor="middle" className={styles.barValueLabel}>
+                      {shownTrabalhadas + shownExtras}
+                    </text>
+                  ) : null}
+                  {shownExtras > 0 ? (
+                    <text x={x + BAR_WIDTH / 2} y={trabalhadasTopY - 8} textAnchor="middle" className={styles.barExtraValueLabel}>
+                      +{shownExtras}
+                    </text>
                   ) : null}
                   <text
                     x={x + BAR_WIDTH / 2}
-                    y={plotHeight + 16}
+                    y={plotHeight + 20}
                     textAnchor="end"
                     className={styles.employeeLabel}
-                    transform={`rotate(-${ROTATION_DEGREES}, ${x + BAR_WIDTH / 2}, ${plotHeight + 16})`}
+                    transform={`rotate(-${ROTATION_DEGREES}, ${x + BAR_WIDTH / 2}, ${plotHeight + 20})`}
                   >
                     {item.name}
                   </text>
                   {isHovered ? (
-                    <text x={x + BAR_WIDTH / 2} y={plotHeight + 30} textAnchor="middle" className={styles.tooltip}>
-                      {item.horasTrabalhadas}h trabalhadas · {item.horasTickets}h em tickets
+                    <text x={x + BAR_WIDTH / 2} y={plotHeight + 40} textAnchor="middle" className={styles.tooltip}>
+                      {item.horasTrabalhadas}h trabalhadas
+                      {item.horasExtras > 0 ? ` · ${item.horasExtras}h extras` : ""} · {item.horasTickets}h em tickets
                     </text>
                   ) : null}
                 </g>
@@ -207,10 +244,10 @@ export function HorasChart({ data, metaTickets }: { data: HorasResumoItem[]; met
               <>
                 <path d={linePath} className={styles.line} fill="none" />
                 {linePoints.map((point) => (
-                  <circle key={point.item.userId} cx={point.x} cy={point.y} r={5} className={styles.marker} />
+                  <circle key={point.item.userId} cx={point.x} cy={point.y} r={7} className={styles.marker} />
                 ))}
                 {linePoints.map((point) => (
-                  <text key={point.item.userId} x={point.x} y={point.y - 10} textAnchor="middle" className={styles.lineValueLabel}>
+                  <text key={point.item.userId} x={point.x} y={point.y - 14} textAnchor="middle" className={styles.lineValueLabel}>
                     {point.item.horasTickets}
                   </text>
                 ))}
@@ -226,7 +263,7 @@ export function HorasChart({ data, metaTickets }: { data: HorasResumoItem[]; met
                   y2={scaleY(metaTickets)}
                   className={styles.metaLine}
                 />
-                <text x={chartWidth} y={scaleY(metaTickets) - 6} textAnchor="end" className={styles.metaLabel}>
+                <text x={chartWidth} y={scaleY(metaTickets) - 8} textAnchor="end" className={styles.metaLabel}>
                   Meta: {metaTickets}h em tickets
                 </text>
               </g>

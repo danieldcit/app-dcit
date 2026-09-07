@@ -69,8 +69,8 @@ export type {
 } from "./password-auth";
 export { PAGAMENTO_CATEGORIAS, SendPagamentoSchema } from "./notifications";
 export type { PagamentoCategoria, SendPagamentoInput } from "./notifications";
-export { PERIODOS_HORAS, PeriodoHorasSchema, WorkedHoursEntryCreateSchema } from "./horas";
-export type { PeriodoHoras, WorkedHoursEntryCreateInput } from "./horas";
+export { PERIODOS_HORAS, PeriodoHorasSchema, TicketsEntryCreateSchema } from "./horas";
+export type { PeriodoHoras, TicketsEntryCreateInput } from "./horas";
 export { MuralPostInputSchema } from "./mural";
 export type { MuralPostInput } from "./mural";
 export {

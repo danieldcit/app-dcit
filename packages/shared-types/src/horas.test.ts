@@ -1,4 +1,4 @@
-import { PeriodoHorasSchema, WorkedHoursEntryCreateSchema } from "./horas";
+import { PeriodoHorasSchema, TicketsEntryCreateSchema } from "./horas";
 
 describe("PeriodoHorasSchema", () => {
   it("accepts dia, semana and mes", () => {
@@ -13,42 +13,38 @@ describe("PeriodoHorasSchema", () => {
   });
 });
 
-describe("WorkedHoursEntryCreateSchema", () => {
+describe("TicketsEntryCreateSchema", () => {
   it("accepts a valid lançamento", () => {
-    const result = WorkedHoursEntryCreateSchema.safeParse({
+    const result = TicketsEntryCreateSchema.safeParse({
       userId: "user-1",
       date: "2026-09-03",
-      horasTrabalhadas: 8,
       horasTickets: 6.5,
     });
     expect(result.success).toBe(true);
   });
 
   it("rejects a non-date-only date string", () => {
-    const result = WorkedHoursEntryCreateSchema.safeParse({
+    const result = TicketsEntryCreateSchema.safeParse({
       userId: "user-1",
       date: "2026-09-03T10:00:00.000Z",
-      horasTrabalhadas: 8,
       horasTickets: 6,
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects negative hours", () => {
-    const result = WorkedHoursEntryCreateSchema.safeParse({
+    const result = TicketsEntryCreateSchema.safeParse({
       userId: "user-1",
       date: "2026-09-03",
-      horasTrabalhadas: -1,
-      horasTickets: 0,
+      horasTickets: -1,
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects an empty userId", () => {
-    const result = WorkedHoursEntryCreateSchema.safeParse({
+    const result = TicketsEntryCreateSchema.safeParse({
       userId: "",
       date: "2026-09-03",
-      horasTrabalhadas: 1,
       horasTickets: 1,
     });
     expect(result.success).toBe(false);

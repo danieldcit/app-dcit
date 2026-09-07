@@ -8,7 +8,7 @@ import { HorasChart } from "./horas-chart";
 import styles from "./horas.module.css";
 import { LancarHorasForm } from "./lancar-horas-form";
 
-type HorasResumoItem = { userId: string; name: string; horasTrabalhadas: number; horasTickets: number };
+type HorasResumoItem = { userId: string; name: string; horasTrabalhadas: number; horasExtras: number; horasTickets: number };
 type Employee = { userId: string; name: string };
 
 const PERIODOS = ["dia", "semana", "mes"] as const;

@@ -7,5 +7,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [BancoDeHorasController],
   providers: [BancoDeHorasService],
+  exports: [BancoDeHorasService],
 })
 export class BancoDeHorasModule {}

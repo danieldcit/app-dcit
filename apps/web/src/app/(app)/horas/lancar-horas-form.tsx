@@ -37,7 +37,7 @@ export function LancarHorasForm({ employees }: { employees: Employee[] }) {
   const firstDayOfMonth = firstDayOfCurrentSaoPauloMonth();
   return (
     <form action={lancarHoras} className={styles.form}>
-      <h2 className={styles.sectionTitle}>Lançar horas</h2>
+      <h2 className={styles.sectionTitle}>Lançar horas em tickets</h2>
       <label className={styles.field}>
         Colaborador
         <select name="userId" required defaultValue="" className={styles.input}>
@@ -62,10 +62,6 @@ export function LancarHorasForm({ employees }: { employees: Employee[] }) {
           max={today}
           className={styles.input}
         />
-      </label>
-      <label className={styles.field}>
-        Horas trabalhadas
-        <input type="number" name="horasTrabalhadas" min={0} step={0.5} required className={styles.input} />
       </label>
       <label className={styles.field}>
         Horas em tickets

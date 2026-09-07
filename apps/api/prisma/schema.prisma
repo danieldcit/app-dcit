@@ -394,15 +394,18 @@ model CareerRequisitoCheck {
   atendido     Boolean @default(false)
 }
 
+// One row per (colaborador, dia) — but only tracks the manually-logged
+// ticket hours today. "Horas Trabalhadas" and "Horas Extras" shown in the
+// Horas feature are derived live from TimeEntry/ConvencaoColetiva via
+// BancoDeHorasService (see HorasService.resumo/list), not stored here.
 model WorkedHoursEntry {
-  id               String   @id @default(uuid())
-  userId           String   // colaborador a quem o lançamento se refere
-  gestorId         String   // gestor que lançou — sempre da sessão autenticada, nunca do body
-  date             DateTime // dia do lançamento, data-only (meia-noite UTC) — mesma convenção de VacationRequest.startDate
-  horasTrabalhadas Float    // horas de fato trabalhadas naquele dia
-  horasTickets     Float    // horas lançadas em tickets na ferramenta interna (hoje: Movidesk, conferido manualmente)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id           String   @id @default(uuid())
+  userId       String   // colaborador a quem o lançamento se refere
+  gestorId     String   // gestor que lançou — sempre da sessão autenticada, nunca do body
+  date         DateTime // dia do lançamento, data-only (meia-noite UTC) — mesma convenção de VacationRequest.startDate
+  horasTickets Float    // horas lançadas em tickets na ferramenta interna (hoje: Movidesk, conferido manualmente)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   @@unique([userId, date])
   @@index([date])

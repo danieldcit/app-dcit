@@ -35,7 +35,6 @@ function firstDayOfCurrentSaoPauloMonth(): string {
 export async function lancarHoras(formData: FormData) {
   const userId = formData.get("userId");
   const date = formData.get("date");
-  const horasTrabalhadasRaw = formData.get("horasTrabalhadas");
   const horasTicketsRaw = formData.get("horasTickets");
 
   if (
@@ -43,10 +42,9 @@ export async function lancarHoras(formData: FormData) {
     userId.length === 0 ||
     typeof date !== "string" ||
     date.length === 0 ||
-    typeof horasTrabalhadasRaw !== "string" ||
     typeof horasTicketsRaw !== "string"
   ) {
-    throw new Error("Preencha colaborador, data e as duas quantidades de horas.");
+    throw new Error("Preencha colaborador, data e horas em tickets.");
   }
 
   const minDate = firstDayOfCurrentSaoPauloMonth();
@@ -55,16 +53,15 @@ export async function lancarHoras(formData: FormData) {
     throw new Error(`Data deve estar entre ${minDate} e ${maxDate} (mês atual).`);
   }
 
-  const horasTrabalhadas = Number(horasTrabalhadasRaw);
   const horasTickets = Number(horasTicketsRaw);
-  if (!Number.isFinite(horasTrabalhadas) || horasTrabalhadas < 0 || !Number.isFinite(horasTickets) || horasTickets < 0) {
-    throw new Error("Horas devem ser números maiores ou iguais a zero.");
+  if (!Number.isFinite(horasTickets) || horasTickets < 0) {
+    throw new Error("Horas em tickets deve ser um número maior ou igual a zero.");
   }
 
   const res = await apiFetch("/horas", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ userId, date, horasTrabalhadas, horasTickets }),
+    body: JSON.stringify({ userId, date, horasTickets }),
   });
   if (!res.ok) {
     throw new Error(`/horas responded with ${res.status}`);

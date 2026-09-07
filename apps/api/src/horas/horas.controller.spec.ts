@@ -79,11 +79,11 @@ describe('HorasController', () => {
   it('parses a valid body and calls service.lancar with the session gestorId, never the body', async () => {
     serviceMock.lancar.mockResolvedValue({ id: 'entry-1' });
     await controller.lancar(
-      { userId: 'user-1', date: '2026-09-03', horasTrabalhadas: 8, horasTickets: 6, gestorId: 'someone-else' },
+      { userId: 'user-1', date: '2026-09-03', horasTickets: 6, gestorId: 'someone-else' },
       req,
     );
     expect(serviceMock.lancar).toHaveBeenCalledWith(
-      { userId: 'user-1', date: '2026-09-03', horasTrabalhadas: 8, horasTickets: 6 },
+      { userId: 'user-1', date: '2026-09-03', horasTickets: 6 },
       'gestor-spec-1',
     );
   });
