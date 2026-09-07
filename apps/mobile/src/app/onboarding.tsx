@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -22,15 +22,18 @@ import {
   type AdmissionDocumentRecord,
   type SignedContractRecord,
 } from "@/lib/documentos-api";
+import { decodeSessionToken } from "@/lib/jwt";
 import {
   fetchOnboardingTasks,
+  fetchTeamOnboardingProgress,
   toggleOnboardingAccessItem,
   toggleOnboardingTask,
   type OnboardingTaskRecord,
+  type TeamOnboardingProgress,
 } from "@/lib/onboarding-api";
 import { getSessionToken } from "@/lib/session";
 
-export default function OnboardingScreen() {
+function ColaboradorOnboardingScreen() {
   const theme = useTheme();
   const router = useRouter();
   const [tasks, setTasks] = useState<OnboardingTaskRecord[]>([]);
@@ -289,3 +292,66 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
   },
 });
+
+function GestorOnboardingView() {
+  const theme = useTheme();
+  const router = useRouter();
+  const [progress, setProgress] = useState<TeamOnboardingProgress[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      getSessionToken().then(async (token) => {
+        if (!token) return;
+        const result = await fetchTeamOnboardingProgress(token);
+        if (!cancelled && result) setProgress(result);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  return (
+    <ThemedView style={styles.container}>
+      <ScreenHeader title="Onboarding" />
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.list}>
+          {progress.map((entry) => {
+            const percent = entry.totalCount === 0 ? 0 : Math.round((entry.completedCount / entry.totalCount) * 100);
+            return (
+              <Pressable
+                key={entry.userId}
+                onPress={() => router.push(`/onboarding-detalhe?userId=${entry.userId}`)}
+                style={[styles.row, { backgroundColor: theme.backgroundElement }]}
+              >
+                <View style={styles.rowContent}>
+                  <ThemedText type="smallBold">{entry.userName}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {entry.completedCount} de {entry.totalCount} tarefas concluídas
+                  </ThemedText>
+                </View>
+                <ThemedText type="small" themeColor="secondary">
+                  {percent}%
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+export default function OnboardingScreen() {
+  const [role, setRole] = useState<"colaborador" | "gestor" | "rh" | null>(null);
+
+  useEffect(() => {
+    getSessionToken().then((token) => {
+      if (token) setRole(decodeSessionToken(token)?.role ?? null);
+    });
+  }, []);
+
+  if (role && role !== "colaborador") return <GestorOnboardingView />;
+  return <ColaboradorOnboardingScreen />;
+}

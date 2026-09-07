@@ -210,4 +210,48 @@ describe("onboarding screen", () => {
       expect(screen.getByText("🎉 Acesso liberado!")).toBeTruthy();
     });
   });
+
+  it("shows the team progress list instead of tasks for a gestor", async () => {
+    (globalThis.fetch as jest.Mock) = jest.fn((url: string) => {
+      if (url.endsWith("/onboarding/equipe")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [
+            {
+              userId: "colaborador-1",
+              userName: "Ana Colaboradora",
+              completedCount: 2,
+              totalCount: 5,
+              tasks: BASE_TASKS,
+              completedTaskIds: ["t1", "t2"],
+              fullAccessGrantedAt: null,
+              fullAccessGrantSource: null,
+              fullAccessGrantedByName: null,
+            },
+          ],
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => [] });
+    });
+
+    const BASE64URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    function b64(value: string) {
+      const bytes = encodeURIComponent(value).replace(/%([0-9A-F]{2})/g, (_, hex: string) =>
+        String.fromCharCode(parseInt(hex, 16)),
+      );
+      let bits = "";
+      for (let i = 0; i < bytes.length; i++) bits += bytes.charCodeAt(i).toString(2).padStart(8, "0");
+      let out = "";
+      for (let i = 0; i + 6 <= bits.length; i += 6) out += BASE64URL[parseInt(bits.slice(i, i + 6), 2)];
+      const rem = bits.length % 6;
+      if (rem) out += BASE64URL[parseInt(bits.slice(-rem).padEnd(6, "0"), 2)];
+      return out;
+    }
+    await saveSessionToken(`${b64("{}")}.${b64(JSON.stringify({ sub: "gestor-1", role: "gestor", name: "Bruno" }))}.sig`);
+
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+
+    expect(await screen.findByText("Ana Colaboradora")).toBeTruthy();
+    expect(screen.getByText("2 de 5 tarefas concluídas")).toBeTruthy();
+  });
 });
