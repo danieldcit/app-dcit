@@ -48,6 +48,14 @@ function ColaboradorOnboardingScreen() {
 
   const previousIsComplete = useRef(false);
   const previousGrantedAt = useRef<string | null>(null);
+  // Mobile fetches everything asynchronously (unlike the web version, which
+  // seeds these refs from already-fetched server-component props), so the
+  // very first load() after mount has no prior state to compare against.
+  // Without this guard, a colaborador who already finished the track (or
+  // was already granted access) in a previous session would see the
+  // celebration dialog fire again on every mount/visit. Only compare from
+  // the second successful load onward — the first load just seeds the refs.
+  const hasLoadedOnce = useRef(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [showUnlockedDialog, setShowUnlockedDialog] = useState(false);
 
@@ -65,15 +73,17 @@ function ColaboradorOnboardingScreen() {
       setCompletedAccessItems(tasksResult.completedAccessItems);
 
       const isComplete = tasksResult.tasks.length > 0 && tasksResult.completedTaskIds.length === tasksResult.tasks.length;
-      if (!previousIsComplete.current && isComplete && !tasksResult.fullAccessGrantedAt) {
-        setShowCompletionDialog(true);
+      if (hasLoadedOnce.current) {
+        if (!previousIsComplete.current && isComplete && !tasksResult.fullAccessGrantedAt) {
+          setShowCompletionDialog(true);
+        }
+        if (!previousGrantedAt.current && tasksResult.fullAccessGrantedAt) {
+          setShowUnlockedDialog(true);
+        }
       }
       previousIsComplete.current = isComplete;
-
-      if (!previousGrantedAt.current && tasksResult.fullAccessGrantedAt) {
-        setShowUnlockedDialog(true);
-      }
       previousGrantedAt.current = tasksResult.fullAccessGrantedAt;
+      hasLoadedOnce.current = true;
       setFullAccessGrantedAt(tasksResult.fullAccessGrantedAt);
     }
     if (documentsResult) setAdmissionDocuments(documentsResult);

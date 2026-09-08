@@ -1,9 +1,15 @@
 // Mirrors apps/web/src/app/(app)/onboarding/team-members.ts — same rows,
 // same order, same names/titles; only the image source changes from a
 // public-folder URL string to a bundled require().
-export type TeamMember = { name: string; title: string; image: ReturnType<typeof require> };
-
-export const TEAM_ROWS: TeamMember[][] = [
+//
+// `image`'s type is intentionally left to inference rather than annotated
+// as `ReturnType<typeof require>`: `require` is declared with an overloaded
+// signature ((path: string) => any, plus a generic <T>(path: string) => T),
+// and `ReturnType<...>` resolves against the last (generic) overload, which
+// yields `unknown` with nothing to infer T from. Letting each require() call
+// below infer against the first, non-generic overload instead gives `any`,
+// which is what expo-image's <Image source> prop actually needs.
+export const TEAM_ROWS = [
   [
     { name: "Claudio Medeiros", title: "Founder e CEO na DCIT", image: require("@/assets/images/team/founder-ceo.jpg") },
     {
@@ -45,3 +51,5 @@ export const TEAM_ROWS: TeamMember[][] = [
     { name: "Diego Moreira", title: "Analista de Cloud", image: require("@/assets/images/team/analista-de-cloud-3.jpg") },
   ],
 ];
+
+export type TeamMember = (typeof TEAM_ROWS)[number][number];

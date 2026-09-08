@@ -30,6 +30,7 @@ const BASE_TASKS = [
   { id: "t3", icon: "play-circle-outline", title: "Assistir ao vídeo de boas-vindas", description: "Conheça a empresa.", order: 3, requiresUpload: false, requiresVideo: true, showsTeam: false, requiresContract: false, requiresAccessChecklist: false },
   { id: "t4", icon: "people-outline", title: "Conhecer o time", description: "Veja quem trabalha aqui.", order: 4, requiresUpload: false, requiresVideo: false, showsTeam: true, requiresContract: false, requiresAccessChecklist: false },
   { id: "t5", icon: "key-outline", title: "Configurar seus acessos", description: "Peça os acessos de TI.", order: 5, requiresUpload: false, requiresVideo: false, showsTeam: false, requiresContract: false, requiresAccessChecklist: true },
+  { id: "t6", icon: "checkmark-circle-outline", title: "Ler o código de conduta", description: "Leia e concorde com as regras.", order: 6, requiresUpload: false, requiresVideo: false, showsTeam: false, requiresContract: false, requiresAccessChecklist: false },
 ];
 
 let completedTaskIds: string[];
@@ -105,7 +106,7 @@ describe("onboarding screen", () => {
     await saveSessionToken("test-token");
   });
 
-  it("shows the checklist with all 5 task types", async () => {
+  it("shows the checklist with all 6 task types", async () => {
     renderRouter("src/app", { initialUrl: "/onboarding" });
 
     await waitFor(() => {
@@ -115,7 +116,19 @@ describe("onboarding screen", () => {
     expect(screen.getByText("Assistir ao vídeo de boas-vindas")).toBeTruthy();
     expect(screen.getByText("Conhecer o time")).toBeTruthy();
     expect(screen.getByText("Configurar seus acessos")).toBeTruthy();
-    expect(screen.getByText("0 de 5 concluídos")).toBeTruthy();
+    expect(screen.getByText("Ler o código de conduta")).toBeTruthy();
+    expect(screen.getByText("0 de 6 concluídos")).toBeTruthy();
+  });
+
+  it("toggles a plain (non-expandable) task directly, without needing to expand it", async () => {
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+    await waitFor(() => expect(screen.getByText("Ler o código de conduta")).toBeTruthy());
+
+    fireEvent.press(screen.getByText("Ler o código de conduta"));
+
+    await waitFor(() => {
+      expect(screen.getByText("1 de 6 concluídos")).toBeTruthy();
+    });
   });
 
   it("expanding the video task renders the WelcomeVideoPlayer and completes the task when it ends", async () => {
@@ -127,7 +140,7 @@ describe("onboarding screen", () => {
     fireEvent(webview, "message", { nativeEvent: { data: JSON.stringify({ type: "ended" }) } });
 
     await waitFor(() => {
-      expect(screen.getByText("1 de 5 concluídos")).toBeTruthy();
+      expect(screen.getByText("1 de 6 concluídos")).toBeTruthy();
     });
   });
 
@@ -139,7 +152,7 @@ describe("onboarding screen", () => {
     fireEvent.press(screen.getByText("Marcar como concluído"));
 
     await waitFor(() => {
-      expect(screen.getByText("1 de 5 concluídos")).toBeTruthy();
+      expect(screen.getByText("1 de 6 concluídos")).toBeTruthy();
     });
   });
 
@@ -155,7 +168,7 @@ describe("onboarding screen", () => {
     fireEvent.press(screen.getByText("Enviar PDF assinado"));
 
     await waitFor(() => {
-      expect(screen.getByText("1 de 5 concluídos")).toBeTruthy();
+      expect(screen.getByText("1 de 6 concluídos")).toBeTruthy();
     });
   });
 
@@ -172,7 +185,7 @@ describe("onboarding screen", () => {
   });
 
   it("shows the completion dialog once every task is done and no access has been granted yet", async () => {
-    completedTaskIds = ["t1", "t2", "t3", "t4"];
+    completedTaskIds = ["t1", "t2", "t3", "t4", "t6"];
     renderRouter("src/app", { initialUrl: "/onboarding" });
     await waitFor(() => expect(screen.getByText("Configurar seus acessos")).toBeTruthy());
 
@@ -208,6 +221,95 @@ describe("onboarding screen", () => {
 
     await waitFor(() => {
       expect(screen.getByText("🎉 Acesso liberado!")).toBeTruthy();
+    });
+  });
+
+  it("does not show the completion dialog on initial mount, even when every task is already complete", async () => {
+    // Colaborador already finished the track in a previous session: the
+    // very first /onboarding/tarefas response already reports every task
+    // done, with no grant yet. The transition-detector refs must be seeded
+    // from this first load, not compared against it — otherwise this looks
+    // like a false -> true transition on every mount.
+    completedTaskIds = ["t1", "t2", "t3", "t4", "t5", "t6"];
+    completedAccessItems = ["sgn", "movidesk", "email", "teams", "site24x7"];
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+
+    await waitFor(() => {
+      expect(screen.getByText("6 de 6 concluídos")).toBeTruthy();
+    });
+    expect(screen.queryByText("🎉 Parabéns! Onboarding concluído")).toBeNull();
+  });
+
+  it("does not show the unlocked dialog on initial mount when access was already granted previously", async () => {
+    // Colaborador was already granted full access in a previous session:
+    // fullAccessGrantedAt is non-null from the very first fetch. Same
+    // seed-not-compare requirement as above, this time for the grant date.
+    fullAccessGrantedAt = "2026-08-01T09:00:00.000Z";
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+
+    await waitFor(() => expect(screen.getByText("Assinar o contrato")).toBeTruthy());
+    expect(screen.queryByText("🎉 Acesso liberado!")).toBeNull();
+  });
+
+  it("expanding the upload task shows the 5 fixed document boxes", async () => {
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+    await waitFor(() => expect(screen.getByText("Enviar documentos")).toBeTruthy());
+
+    fireEvent.press(screen.getByText("Enviar documentos"));
+
+    expect(screen.getByText("RG")).toBeTruthy();
+    expect(screen.getByText("CPF")).toBeTruthy();
+    expect(screen.getByText("Comprovante de endereço")).toBeTruthy();
+    expect(screen.getByText("Certidão de casamento")).toBeTruthy();
+    expect(screen.getByText("Certidão de nascimento dos filhos")).toBeTruthy();
+  });
+
+  it("submitting a document from the onboarding upload task posts to /documentos/admissionais", async () => {
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+    await waitFor(() => expect(screen.getByText("Enviar documentos")).toBeTruthy());
+
+    fireEvent.press(screen.getByText("Enviar documentos"));
+
+    const rgBox = within(screen.getByTestId("admission-box-rg"));
+    fireEvent.press(rgBox.getByText("Enviar"));
+    fireEvent.press(rgBox.getAllByText("Tirar foto")[0]);
+    await waitFor(() => {
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+    });
+    fireEvent.press(rgBox.getByText("Enviar"));
+
+    await waitFor(() => {
+      const submitCall = (globalThis.fetch as jest.Mock).mock.calls.find(
+        ([url, options]: [string, RequestInit | undefined]) =>
+          url.endsWith("/documentos/admissionais") && options?.method === "POST",
+      );
+      expect(submitCall).toBeTruthy();
+      const body = JSON.parse(submitCall![1].body as string) as Record<string, unknown>;
+      expect(body).toEqual({ kind: "rg", photos: ["data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh"] });
+    });
+  });
+
+  it("after submitting a document, the progress count updates optimistically", async () => {
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+    await waitFor(() => expect(screen.getByText("Enviar documentos")).toBeTruthy());
+    expect(screen.getByText("0 de 6 concluídos")).toBeTruthy();
+
+    fireEvent.press(screen.getByText("Enviar documentos"));
+
+    const rgBox = within(screen.getByTestId("admission-box-rg"));
+    fireEvent.press(rgBox.getByText("Enviar"));
+    fireEvent.press(rgBox.getAllByText("Tirar foto")[0]);
+    await waitFor(() => {
+      expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+    });
+    fireEvent.press(rgBox.getByText("Enviar"));
+
+    // onboarding.tsx's onSubmitted callback in the requiresUpload branch
+    // calls setDone(...) optimistically as soon as the upload succeeds —
+    // this proves that state update actually reaches visible UI (the
+    // progress-count text), not just internal state nothing reads.
+    await waitFor(() => {
+      expect(screen.getByText("1 de 6 concluídos")).toBeTruthy();
     });
   });
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,7 +25,7 @@ export function ExpandableTabBar({ state, descriptors, navigation }: ExpandableT
   const insets = useSafeAreaInsets();
   const { unreadCount } = useNotificationContext();
   const [expanded, setExpanded] = useState(false);
-  const heightAnim = useRef(new Animated.Value(0)).current;
+  const [heightAnim] = useState(() => new Animated.Value(0));
 
   // On open, `expanded` flips to true before the height animation starts
   // growing from 0, so there's nothing visible to pop in. On close, the
@@ -54,7 +54,7 @@ export function ExpandableTabBar({ state, descriptors, navigation }: ExpandableT
   }
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: insets.bottom }]}>
+    <View style={styles.wrapper}>
       <Animated.View
         style={[
           styles.extraRow,
@@ -88,7 +88,12 @@ export function ExpandableTabBar({ state, descriptors, navigation }: ExpandableT
       <View
         style={[
           styles.mainRow,
-          { backgroundColor: theme.backgroundElement, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl },
+          {
+            backgroundColor: theme.backgroundElement,
+            borderTopLeftRadius: Radius.xl,
+            borderTopRightRadius: Radius.xl,
+            paddingBottom: Spacing.one + insets.bottom,
+          },
         ]}
       >
         <Pressable style={styles.expandHandle} onPress={toggle} accessibilityLabel="Mais opções">
