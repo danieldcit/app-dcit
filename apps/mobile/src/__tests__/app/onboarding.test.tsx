@@ -1,7 +1,7 @@
 import { act, fireEvent, renderRouter, screen, waitFor, within } from "expo-router/testing-library";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import { RefreshControl } from "react-native";
+import { Alert, RefreshControl } from "react-native";
 import { saveSessionToken } from "@/lib/session";
 
 jest.mock("expo-image-picker", () => ({
@@ -182,6 +182,31 @@ describe("onboarding screen", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Concluído")).toHaveLength(1);
     });
+  });
+
+  it("alerts when toggling an access item fails", async () => {
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    const baseFetch = globalThis.fetch as jest.Mock;
+    (globalThis.fetch as jest.Mock) = jest.fn((url: string, options?: RequestInit) => {
+      if (url.includes("/onboarding/acessos/") && url.endsWith("/toggle")) {
+        return Promise.resolve({ ok: false });
+      }
+      return baseFetch(url, options);
+    });
+
+    renderRouter("src/app", { initialUrl: "/onboarding" });
+    await waitFor(() => expect(screen.getByText("Configurar seus acessos")).toBeTruthy());
+
+    fireEvent.press(screen.getByText("Configurar seus acessos"));
+    fireEvent.press(screen.getByText("SGN Portal"));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        "Não foi possível atualizar",
+        expect.stringContaining("Tente novamente"),
+      );
+    });
+    alertSpy.mockRestore();
   });
 
   it("shows the completion dialog once every task is done and no access has been granted yet", async () => {

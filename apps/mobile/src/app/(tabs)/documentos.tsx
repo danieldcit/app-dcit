@@ -553,7 +553,7 @@ function ContratoSection() {
     }, []),
   );
 
-  return <ContractBox existing={contract} onSubmitted={() => {}} />;
+  return <ContractBox existing={contract} onSubmitted={setContract} />;
 }
 
 const styles = StyleSheet.create({

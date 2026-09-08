@@ -80,4 +80,33 @@ describe("onboarding detalhe screen", () => {
     });
     alertSpy.mockRestore();
   });
+
+  it("alerts when granting full access fails", async () => {
+    (globalThis.fetch as jest.Mock) = jest.fn((url: string) => {
+      if (url.endsWith("/onboarding/equipe")) {
+        return Promise.resolve({ ok: true, json: async () => teamProgress });
+      }
+      if (url.includes("/liberar-acesso")) {
+        return Promise.resolve({ ok: false });
+      }
+      return Promise.resolve({ ok: true, json: async () => teamProgress });
+    });
+    const alertSpy = jest.spyOn(Alert, "alert").mockImplementation((_title, _msg, buttons) => {
+      const confirm = buttons?.find((b) => b.text === "Confirmar liberação");
+      confirm?.onPress?.();
+    });
+
+    renderRouter("src/app", { initialUrl: "/onboarding-detalhe?userId=colaborador-1" });
+    await screen.findByText("Ana Colaboradora");
+
+    fireEvent.press(screen.getByText("Liberar acesso total ao SGP Portal"));
+
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(
+        "Não foi possível liberar o acesso",
+        expect.stringContaining("Tente novamente"),
+      );
+    });
+    alertSpy.mockRestore();
+  });
 });

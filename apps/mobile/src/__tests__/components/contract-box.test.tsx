@@ -62,7 +62,7 @@ describe("ContractBox", () => {
         fileDataUrl: "data:application/pdf;base64,ZmFrZS1wZGY=",
       });
     });
-    expect(onSubmitted).toHaveBeenCalledTimes(1);
+    expect(onSubmitted).toHaveBeenCalledWith({ submittedAt: "2026-09-07T00:00:00.000Z" });
   });
 
   it("does nothing when the document picker is canceled", async () => {
@@ -74,5 +74,22 @@ describe("ContractBox", () => {
     await waitFor(() => {
       expect(globalThis.fetch).not.toHaveBeenCalled();
     });
+  });
+
+  it("shows an error message and does not call onSubmitted when the upload fails", async () => {
+    (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: "file://fake.pdf", name: "contrato.pdf", mimeType: "application/pdf" }],
+    });
+    (globalThis.fetch as jest.Mock).mockResolvedValue({ ok: false });
+    const onSubmitted = jest.fn();
+    render(<ContractBox existing={null} onSubmitted={onSubmitted} />);
+
+    fireEvent.press(screen.getByText("Enviar PDF assinado"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Não foi possível enviar o contrato. Tente novamente.")).toBeTruthy();
+    });
+    expect(onSubmitted).not.toHaveBeenCalled();
   });
 });

@@ -19,10 +19,11 @@ export function ContractBox({
   onSubmitted,
 }: {
   existing: SignedContractRecord | null;
-  onSubmitted?: () => void;
+  onSubmitted?: (record: SignedContractRecord) => void;
 }) {
   const theme = useTheme();
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handlePickAndSubmit() {
     const result = await DocumentPicker.getDocumentAsync({ type: "application/pdf" });
@@ -31,12 +32,17 @@ export function ContractBox({
     if (!token) return;
 
     setSubmitting(true);
+    setError(null);
     try {
       const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
       const submitted = await submitSignedContract(token, `data:application/pdf;base64,${base64}`);
-      if (submitted) onSubmitted?.();
+      if (submitted) {
+        onSubmitted?.(submitted);
+      } else {
+        setError("Não foi possível enviar o contrato. Tente novamente.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -59,6 +65,11 @@ export function ContractBox({
         title={submitting ? "Enviando..." : existing?.submittedAt ? "Reenviar" : "Enviar PDF assinado"}
         onPress={submitting ? () => {} : handlePickAndSubmit}
       />
+      {error ? (
+        <ThemedText type="small" themeColor="accent">
+          {error}
+        </ThemedText>
+      ) : null}
     </View>
   );
 }

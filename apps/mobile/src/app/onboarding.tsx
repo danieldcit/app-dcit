@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 
@@ -132,6 +132,8 @@ function ColaboradorOnboardingScreen() {
         setCompletedAccessItems((current) =>
           result.completed ? [...current, item] : current.filter((i) => i !== item),
         );
+      } else {
+        Alert.alert("Não foi possível atualizar", "Tente novamente em instantes.");
       }
     } finally {
       setPendingAccessItem(null);
@@ -225,7 +227,13 @@ function ColaboradorOnboardingScreen() {
                 ) : null}
 
                 {task.requiresContract && expanded ? (
-                  <ContractBox existing={signedContract} onSubmitted={() => !checked && toggle(task.id)} />
+                  <ContractBox
+                    existing={signedContract}
+                    onSubmitted={(record) => {
+                      setSignedContract(record);
+                      if (!checked) toggle(task.id);
+                    }}
+                  />
                 ) : null}
 
                 {task.requiresAccessChecklist && expanded ? (

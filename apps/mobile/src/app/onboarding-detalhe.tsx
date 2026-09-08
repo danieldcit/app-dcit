@@ -54,7 +54,11 @@ export default function OnboardingDetalheScreen() {
     if (!token) return;
     setGranting(true);
     try {
-      await grantOnboardingFullAccess(token, entry.userId);
+      const result = await grantOnboardingFullAccess(token, entry.userId);
+      if (!result) {
+        Alert.alert("Não foi possível liberar o acesso", "Tente novamente em instantes.");
+        return;
+      }
       await load();
     } finally {
       setGranting(false);
