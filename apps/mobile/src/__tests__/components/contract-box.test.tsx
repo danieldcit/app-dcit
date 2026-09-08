@@ -6,9 +6,10 @@ import { ContractBox } from "@/components/contract-box";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
 jest.mock("expo-web-browser", () => ({ openBrowserAsync: jest.fn() }));
-jest.mock("expo-file-system/legacy", () => ({
-  readAsStringAsync: jest.fn().mockResolvedValue("ZmFrZS1wZGY="),
-  EncodingType: { Base64: "base64" },
+jest.mock("expo-file-system", () => ({
+  File: jest.fn().mockImplementation(() => ({
+    base64: jest.fn().mockResolvedValue("ZmFrZS1wZGY="),
+  })),
 }));
 
 globalThis.fetch = jest.fn();
