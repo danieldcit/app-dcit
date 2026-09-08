@@ -120,7 +120,7 @@ export function ExpandableTabBar({ state, descriptors, navigation }: ExpandableT
               accessibilityLabel={`${label}, tab, ${index + 1} of ${state.routes.length}`}
             >
               {options.tabBarIcon?.({ focused, color: focused ? theme.secondary : theme.textSecondary, size: 24 })}
-              <ThemedText type="small" style={focused ? { color: theme.secondary } : undefined}>
+              <ThemedText type="small" style={[styles.tabLabel, focused ? { color: theme.secondary } : undefined]}>
                 {label}
               </ThemedText>
             </Pressable>
@@ -178,7 +178,11 @@ const styles = StyleSheet.create({
   tabItem: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
+    paddingTop: Spacing.one,
     gap: 2,
+  },
+  tabLabel: {
+    textAlign: "center",
   },
 });
