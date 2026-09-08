@@ -50,4 +50,11 @@ describe("WelcomeVideoPlayer", () => {
     const webview = await screen.findByTestId("welcome-video-webview");
     expect(webview.props.source.html).toContain("var maxWatched = 30");
   });
+
+  it("sets a youtube.com baseUrl so the IFrame API doesn't reject playback with error 153", async () => {
+    render(<WelcomeVideoPlayer onCompleted={jest.fn()} />);
+
+    const webview = await screen.findByTestId("welcome-video-webview");
+    expect(webview.props.source.baseUrl).toBe("https://www.youtube.com");
+  });
 });

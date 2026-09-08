@@ -87,9 +87,15 @@ export function WelcomeVideoPlayer({ onCompleted }: { onCompleted: () => void })
   return (
     <View style={styles.wrapper}>
       <WebView
-        source={{ html: buildPlayerHtml(initialProgress) }}
+        // Without a baseUrl the page's origin is null/about:blank, which the
+        // YouTube IFrame API rejects with "Error 153" (video player
+        // configuration error) as soon as playback is attempted — setting
+        // this to youtube.com's own origin is the standard fix.
+        source={{ html: buildPlayerHtml(initialProgress), baseUrl: "https://www.youtube.com" }}
         onMessage={handleMessage}
         javaScriptEnabled
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
         style={styles.webview}
       />
     </View>
