@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
 
+import { ExpandableTabBar } from "@/components/expandable-tab-bar";
 import { useTheme } from "@/hooks/use-theme";
 import { Radius } from "@/constants/theme";
 import { decodeSessionToken } from "@/lib/jwt";
@@ -58,24 +59,7 @@ export default function TabsLayout() {
   );
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.secondary,
-        tabBarInactiveTintColor: theme.textSecondary,
-        tabBarStyle: {
-          backgroundColor: theme.backgroundElement,
-          borderTopWidth: 0,
-          borderTopLeftRadius: Radius.xl,
-          borderTopRightRadius: Radius.xl,
-          shadowColor: "#000000",
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 8,
-        },
-      }}
-    >
+    <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <ExpandableTabBar {...props} />}>
       <Tabs.Screen
         name="index"
         options={{ title: "Ponto", tabBarIcon: tabIcon("time-outline", "time") }}

@@ -1,4 +1,4 @@
-import { renderRouter, screen, waitFor } from "expo-router/testing-library";
+import { fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
 import { saveSessionToken } from "@/lib/session";
 
 // The locked-colaborador redirect test below navigates to the real
@@ -92,5 +92,21 @@ describe("(tabs) navigation", () => {
       expect(screen.getByText("Ponto")).toBeTruthy();
     });
     expect(screen).toHavePathname("/");
+  });
+
+  it("expands to reveal Onboarding and Notificações shortcuts, then navigates and collapses", async () => {
+    renderRouter("src/app", { initialUrl: "/" });
+
+    expect(screen.queryByText("Onboarding")).toBeNull();
+    fireEvent.press(screen.getByLabelText("Mais opções"));
+
+    expect(await screen.findByText("Onboarding")).toBeTruthy();
+    expect(screen.getByText("Notificações")).toBeTruthy();
+
+    fireEvent.press(screen.getByText("Onboarding"));
+
+    await waitFor(() => {
+      expect(screen).toHavePathname("/onboarding");
+    });
   });
 });
