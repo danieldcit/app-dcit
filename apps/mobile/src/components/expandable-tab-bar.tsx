@@ -27,19 +27,29 @@ export function ExpandableTabBar({ state, descriptors, navigation }: ExpandableT
   const [expanded, setExpanded] = useState(false);
   const heightAnim = useRef(new Animated.Value(0)).current;
 
-  function animateTo(value: number) {
-    Animated.timing(heightAnim, { toValue: value, duration: 200, useNativeDriver: false }).start();
-  }
-
+  // On open, `expanded` flips to true before the height animation starts
+  // growing from 0, so there's nothing visible to pop in. On close, the
+  // reverse ordering matters: unmounting the shortcut row's children
+  // synchronously (before the height animation finishes) would make the
+  // content vanish instantly while an empty box visibly shrinks over the
+  // next 200ms. So close only flips `expanded` back to false once the
+  // closing animation's completion callback fires, keeping content mounted
+  // (and the RTL-query-visible fix from earlier) for the full close.
   function toggle() {
-    const next = !expanded;
-    setExpanded(next);
-    animateTo(next ? 1 : 0);
+    if (expanded) {
+      Animated.timing(heightAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start(() =>
+        setExpanded(false),
+      );
+    } else {
+      setExpanded(true);
+      Animated.timing(heightAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+    }
   }
 
   function goToShortcut(path: "/onboarding" | "/notificacoes") {
-    setExpanded(false);
-    animateTo(0);
+    Animated.timing(heightAnim, { toValue: 0, duration: 200, useNativeDriver: false }).start(() =>
+      setExpanded(false),
+    );
     router.push(path);
   }
 

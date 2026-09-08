@@ -5,8 +5,6 @@ import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
 
 import { ExpandableTabBar } from "@/components/expandable-tab-bar";
-import { useTheme } from "@/hooks/use-theme";
-import { Radius } from "@/constants/theme";
 import { decodeSessionToken } from "@/lib/jwt";
 import { fetchOnboardingStatus } from "@/lib/onboarding-api";
 import { getSessionToken } from "@/lib/session";
@@ -29,7 +27,6 @@ function tabIcon(outline: IconName, filled: IconName) {
 }
 
 export default function TabsLayout() {
-  const theme = useTheme();
   const router = useRouter();
 
   // Expo Router has no server middleware — from the root Stack's
