@@ -43,18 +43,26 @@ describe("WelcomeVideoPlayer", () => {
     });
   });
 
-  it("reads any previously saved progress before rendering the WebView", async () => {
+  it("reads any previously saved progress and passes it to the web app's video embed page", async () => {
     await AsyncStorage.setItem("onboarding-video-progress:9US-Rv6-354", "30");
     render(<WelcomeVideoPlayer onCompleted={jest.fn()} />);
 
     const webview = await screen.findByTestId("welcome-video-webview");
-    expect(webview.props.source.html).toContain("var maxWatched = 30");
+    expect(webview.props.source.uri).toContain("/onboarding-video?progress=30");
   });
 
-  it("sets a youtube.com baseUrl so the IFrame API doesn't reject playback with error 153", async () => {
+  it("navigates to a real page on the web app instead of injecting HTML, so YouTube's embed authorization sees a genuine origin", async () => {
     render(<WelcomeVideoPlayer onCompleted={jest.fn()} />);
 
     const webview = await screen.findByTestId("welcome-video-webview");
-    expect(webview.props.source.baseUrl).toBe("https://www.youtube.com");
+    expect(webview.props.source.uri).toMatch(/^https?:\/\/.+\/onboarding-video\?progress=0$/);
+    expect(webview.props.source.html).toBeUndefined();
+  });
+
+  it("allows fullscreen so the player's own fullscreen button works", async () => {
+    render(<WelcomeVideoPlayer onCompleted={jest.fn()} />);
+
+    const webview = await screen.findByTestId("welcome-video-webview");
+    expect(webview.props.allowsFullscreenVideo).toBe(true);
   });
 });

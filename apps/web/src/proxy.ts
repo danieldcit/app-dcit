@@ -4,7 +4,9 @@ import type { NextRequest } from "next/server";
 import { API_URL } from "@/constants/api";
 import { SESSION_COOKIE } from "@/lib/session";
 
-const PUBLIC_ROUTES = ["/login", "/esqueci-senha"];
+// /onboarding-video is loaded by the mobile app's WebView, which has no
+// session cookie of its own — it's a video player only, nothing sensitive.
+const PUBLIC_ROUTES = ["/login", "/esqueci-senha", "/onboarding-video"];
 
 // Colaboradores whose onboarding isn't unlocked yet are confined to these
 // paths until it is — everything else redirects to /onboarding. "/api" is

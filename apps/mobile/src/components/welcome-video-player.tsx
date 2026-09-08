@@ -4,49 +4,11 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useTheme } from "@/hooks/use-theme";
+import { WEB_APP_URL } from "@/constants/api";
 
 // Same video as the web version (apps/web/.../onboarding/welcome-video-player.tsx).
 const VIDEO_ID = "9US-Rv6-354";
 const PROGRESS_STORAGE_KEY = `onboarding-video-progress:${VIDEO_ID}`;
-
-function buildPlayerHtml(initialProgress: number): string {
-  return `
-<!DOCTYPE html><html><body style="margin:0;background:#000">
-  <div id="player"></div>
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <script>
-    var player;
-    var maxWatched = ${initialProgress};
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        videoId: '${VIDEO_ID}',
-        width: '100%',
-        height: '220',
-        playerVars: { modestbranding: 1, rel: 0 },
-        events: {
-          onReady: function() {
-            if (maxWatched > 1.5) player.seekTo(maxWatched, true);
-            setInterval(function() {
-              var current = player.getCurrentTime();
-              if (current > maxWatched + 1.5) {
-                player.seekTo(maxWatched, true);
-              } else {
-                maxWatched = Math.max(maxWatched, current);
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'progress', seconds: maxWatched }));
-              }
-            }, 500);
-          },
-          onStateChange: function(event) {
-            if (event.data === YT.PlayerState.ENDED) {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ended' }));
-            }
-          }
-        }
-      });
-    }
-  </script>
-</body></html>`;
-}
 
 // The RN WebView doesn't share the app's own storage with the page it
 // loads — the YouTube IFrame page's "window" is its own isolated context,
@@ -87,15 +49,26 @@ export function WelcomeVideoPlayer({ onCompleted }: { onCompleted: () => void })
   return (
     <View style={styles.wrapper}>
       <WebView
-        // Without a baseUrl the page's origin is null/about:blank, which the
-        // YouTube IFrame API rejects with "Error 153" (video player
-        // configuration error) as soon as playback is attempted — setting
-        // this to youtube.com's own origin is the standard fix.
-        source={{ html: buildPlayerHtml(initialProgress), baseUrl: "https://www.youtube.com" }}
+        // Injecting the player HTML directly into the WebView (as raw
+        // {html, baseUrl}) hits YouTube's embed authorization wall no matter
+        // which baseUrl is used — youtube.com itself as baseUrl gets
+        // rejected as self-referential ("Error 152"), and any other faked
+        // origin gets silently degraded to YouTube's non-interactive "Watch
+        // on YouTube" fallback card instead of a real player. Navigating to
+        // a genuine page hosted by the web app sidesteps all of that: the
+        // WebView loads a real URL over a real origin, exactly like the
+        // browser-based web app already does successfully, so YouTube's
+        // authorization check passes the same way it does there.
+        source={{ uri: `${WEB_APP_URL}/onboarding-video?progress=${initialProgress}` }}
         onMessage={handleMessage}
         javaScriptEnabled
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
+        // The YouTube IFrame player's own fullscreen button (bottom-right of
+        // its controls) calls the web fullscreen API on its <video> element —
+        // without this, Android's WebView has nowhere to present that
+        // request and the button does nothing.
+        allowsFullscreenVideo
         style={styles.webview}
       />
     </View>

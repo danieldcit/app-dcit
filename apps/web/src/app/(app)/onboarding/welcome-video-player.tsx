@@ -23,6 +23,8 @@ declare global {
         element: HTMLElement,
         options: {
           videoId: string;
+          width?: string;
+          height?: string;
           playerVars?: Record<string, number>;
           events?: {
             onReady?: () => void;
