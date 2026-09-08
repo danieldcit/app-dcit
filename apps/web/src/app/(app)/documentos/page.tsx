@@ -153,12 +153,12 @@ async function TeamView({ session }: { session: Session }) {
         {signedContracts.length === 0 ? (
           <p className={styles.sectionEmpty}>Nenhum colaborador ativo.</p>
         ) : (
-          <ul className={styles.list}>
+          <div className={styles.list}>
             {signedContracts.map((contract) => (
-              <li key={contract.userId} className={styles.item}>
+              <details key={contract.userId} className={styles.group}>
+                <summary className={styles.groupSummary}>{contract.userName}</summary>
                 <div className={styles.itemHeader}>
                   <div className={styles.itemInfo}>
-                    <span className={styles.itemName}>{contract.userName}</span>
                     <span className={styles.itemDetail}>
                       {contract.submittedAt
                         ? `Enviado em ${formatDateTime(contract.submittedAt)}`
@@ -184,9 +184,9 @@ async function TeamView({ session }: { session: Session }) {
                     </div>
                   ) : null}
                 </div>
-              </li>
+              </details>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 

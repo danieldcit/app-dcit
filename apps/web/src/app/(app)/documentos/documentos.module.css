@@ -360,6 +360,10 @@
   margin-top: 12px;
 }
 
+.group .itemHeader {
+  margin-top: 12px;
+}
+
 .itemActions {
   display: flex;
   align-items: center;

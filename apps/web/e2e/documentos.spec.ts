@@ -427,11 +427,13 @@ test("gestor/rh see who has sent a signed contract, with view/download links onl
 
   await page.goto("/documentos");
 
-  await expect(page.getByText("Colaborador Um")).toBeVisible();
-  await expect(page.getByText("Colaborador Dois")).toBeVisible();
-  await expect(page.getByText("Nenhum contrato assinado enviado ainda.")).toBeVisible();
+  await expect(page.getByText("Colaborador Um", { exact: true })).toBeVisible();
+  await expect(page.getByText("Colaborador Dois", { exact: true })).toBeVisible();
 
-  const row = page.locator("li").filter({ has: page.getByText("Colaborador Um") });
+  // Contracts are collapsed per colaborador (like Atestados) — expand before
+  // asserting on content inside each <details> body.
+  await page.getByText("Colaborador Um", { exact: true }).click();
+  const row = page.locator("details").filter({ has: page.getByText("Colaborador Um", { exact: true }) });
   await expect(row.getByRole("link", { name: "Visualizar" })).toHaveAttribute(
     "href",
     "/api/documentos/contrato/colab-1/arquivo?inline=1",
@@ -440,7 +442,12 @@ test("gestor/rh see who has sent a signed contract, with view/download links onl
     "href",
     "/api/documentos/contrato/colab-1/arquivo",
   );
-  const otherRow = page.locator("li").filter({ has: page.getByText("Colaborador Dois") });
+
+  await page.getByText("Colaborador Dois", { exact: true }).click();
+  const otherRow = page
+    .locator("details")
+    .filter({ has: page.getByText("Colaborador Dois", { exact: true }) });
+  await expect(otherRow.getByText("Nenhum contrato assinado enviado ainda.")).toBeVisible();
   await expect(otherRow.getByRole("link", { name: "Visualizar" })).toHaveCount(0);
   await expect(otherRow.getByRole("link", { name: "Baixar" })).toHaveCount(0);
 });
