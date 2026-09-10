@@ -7,3 +7,5 @@ dist/
 .env.local
 *.db
 .turbo/
+.dev-server.log
+.expo-server.log

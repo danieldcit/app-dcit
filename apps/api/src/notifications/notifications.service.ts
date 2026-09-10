@@ -124,6 +124,13 @@ export class NotificationsService {
     });
   }
 
+  async markAllRead(userId: string) {
+    await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+  }
+
   async sendPontoPerdido(
     tipo: PontoPerdidoTipo,
     employeeUserId: string,

@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { markNotificationRead } from "./notification-actions";
+import { useLocale } from "./locale-context";
+import { markAllNotificationsRead, markNotificationRead } from "./notification-actions";
 import styles from "./notification-list.module.css";
 
 export type NotificationRecord = {
@@ -58,7 +59,16 @@ export function useNotificationInbox(initial: NotificationRecord[]) {
     }
   }
 
-  return { items, unreadCount, handleClick };
+  function handleMarkAllRead() {
+    const readAt = new Date().toISOString();
+    setItems((current) => current.map((n) => (n.readAt === null ? { ...n, readAt } : n)));
+    startTransition(() => {
+      // Same best-effort contract as handleClick above.
+      markAllNotificationsRead().catch(() => {});
+    });
+  }
+
+  return { items, unreadCount, handleClick, handleMarkAllRead };
 }
 
 export function NotificationList({
@@ -68,8 +78,9 @@ export function NotificationList({
   notifications: NotificationRecord[];
   onItemClick: (notification: NotificationRecord) => void;
 }) {
+  const { t } = useLocale();
   if (notifications.length === 0) {
-    return <p className={styles.empty}>Nenhuma notificação.</p>;
+    return <p className={styles.empty}>{t("Nenhuma notificação.")}</p>;
   }
   return (
     <ul className={styles.list}>

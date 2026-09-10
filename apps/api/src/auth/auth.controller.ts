@@ -8,14 +8,20 @@ import {
   Query,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import {
+  ChangePasswordInputSchema,
   ForgotPasswordInputSchema,
   PasswordLoginInputSchema,
   ResetPasswordInputSchema,
 } from '@ponto-dcit/shared-types';
 import { AuthService } from './auth.service';
+import { AuthGuard } from './auth-guard';
+import type { AuthenticatedUser } from './authenticated-user';
+
+type AuthenticatedRequest = Request & { user: AuthenticatedUser };
 
 const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -122,6 +128,22 @@ export class AuthController {
     await this.authService.resetPassword(
       result.data.identifier,
       result.data.code,
+      result.data.newPassword,
+    );
+    return { ok: true };
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('change-password')
+  @HttpCode(200)
+  async changePassword(@Body() body: unknown, @Req() req: AuthenticatedRequest) {
+    const result = ChangePasswordInputSchema.safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten());
+    }
+    await this.authService.changePassword(
+      req.user.sub,
+      result.data.currentPassword,
       result.data.newPassword,
     );
     return { ok: true };

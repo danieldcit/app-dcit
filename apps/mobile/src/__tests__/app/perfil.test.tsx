@@ -1,4 +1,5 @@
 import { fireEvent, renderRouter, screen, waitFor } from "expo-router/testing-library";
+import * as ImagePicker from "expo-image-picker";
 import { getSessionToken, saveSessionToken } from "@/lib/session";
 import { unregisterPushNotifications } from "@/lib/push";
 
@@ -7,6 +8,18 @@ jest.mock("@/lib/push", () => ({
   unregisterPushNotifications: jest.fn().mockResolvedValue(undefined),
   configureNotificationHandler: jest.fn(),
   addNotificationTapListener: jest.fn().mockReturnValue(() => {}),
+}));
+
+jest.mock("expo-image-picker", () => ({
+  requestCameraPermissionsAsync: jest.fn(),
+  requestMediaLibraryPermissionsAsync: jest.fn(),
+  launchCameraAsync: jest.fn(),
+  launchImageLibraryAsync: jest.fn(),
+}));
+
+jest.mock("expo-file-system/legacy", () => ({
+  readAsStringAsync: jest.fn().mockResolvedValue("ZmFrZS1pbWFnZS1kYXRh"),
+  EncodingType: { Base64: "base64", UTF8: "utf8" },
 }));
 
 jest.mock("react-native-webview", () => {
@@ -215,6 +228,324 @@ describe("perfil screen", () => {
     fireEvent.press(screen.getByText("Atestados da equipe"));
     await waitFor(() => {
       expect(screen).toHavePathname("/atestados-equipe");
+    });
+  });
+});
+
+describe("perfil screen avatar", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("shows a previously saved avatar photo inside the edit-photo modal", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    globalThis.fetch = jest.fn().mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/employees/me/avatar")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ photo: "data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh" }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    renderRouter("src/app", { initialUrl: "/" });
+    fireEvent.press(screen.getByLabelText("Abrir perfil"));
+    await waitFor(() => {
+      expect(screen).toHavePathname("/perfil");
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Editar foto")).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText("Editar foto"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Remover foto")).toBeTruthy();
+    });
+  });
+
+  it("takes a photo with the camera and uploads it as the new avatar", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    (ImagePicker.requestCameraPermissionsAsync as jest.Mock).mockResolvedValue({ granted: true });
+    (ImagePicker.launchCameraAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: "file://fake-photo.jpg" }],
+    });
+    const fetchMock = jest.fn().mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/employees/me/avatar")) {
+        return Promise.resolve({ ok: true, json: async () => ({ photo: null }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    globalThis.fetch = fetchMock;
+
+    renderRouter("src/app", { initialUrl: "/" });
+    fireEvent.press(screen.getByLabelText("Abrir perfil"));
+    await waitFor(() => {
+      expect(screen).toHavePathname("/perfil");
+    });
+    fireEvent.press(screen.getByLabelText("Editar foto"));
+
+    fireEvent.press(screen.getByText("Tirar foto"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Remover foto")).toBeTruthy();
+    });
+    const uploadCall = fetchMock.mock.calls.find(
+      ([url, init]: [string, RequestInit]) =>
+        url.includes("/employees/me/avatar") && init?.method === "POST",
+    );
+    expect(uploadCall).toBeTruthy();
+    expect(JSON.parse(uploadCall![1].body as string).photo).toMatch(/^data:image\/jpeg;base64,/);
+  });
+
+  it("removes the saved avatar photo", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    const fetchMock = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (typeof url === "string" && url.includes("/employees/me/avatar")) {
+        if (init?.method === "DELETE") {
+          return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ photo: "data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh" }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    globalThis.fetch = fetchMock;
+
+    renderRouter("src/app", { initialUrl: "/" });
+    fireEvent.press(screen.getByLabelText("Abrir perfil"));
+    await waitFor(() => {
+      expect(screen).toHavePathname("/perfil");
+    });
+    await waitFor(() => {
+      expect(screen.getByLabelText("Editar foto")).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText("Editar foto"));
+    await waitFor(() => {
+      expect(screen.getByText("Remover foto")).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText("Remover foto"));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Remover foto")).toBeNull();
+    });
+    const deleteCall = fetchMock.mock.calls.find(
+      ([url, init]: [string, RequestInit]) =>
+        url.includes("/employees/me/avatar") && init?.method === "DELETE",
+    );
+    expect(deleteCall).toBeTruthy();
+  });
+});
+
+describe("perfil screen change password", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  async function openPasswordModal() {
+    renderRouter("src/app", { initialUrl: "/" });
+    fireEvent.press(screen.getByLabelText("Abrir perfil"));
+    await waitFor(() => {
+      expect(screen).toHavePathname("/perfil");
+    });
+    fireEvent.press(screen.getByText("Alterar senha"));
+  }
+
+  it("changes the password successfully", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    const fetchMock = jest.fn().mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/auth/change-password")) {
+        return Promise.resolve({ ok: true, json: async () => ({ ok: true }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    globalThis.fetch = fetchMock;
+
+    await openPasswordModal();
+    fireEvent.changeText(screen.getByPlaceholderText("Senha atual"), "senha-antiga");
+    fireEvent.changeText(screen.getByPlaceholderText("Nova senha"), "senha-nova-123");
+    fireEvent.changeText(screen.getByPlaceholderText("Confirmar nova senha"), "senha-nova-123");
+    fireEvent.press(screen.getByText("Salvar nova senha"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Senha alterada com sucesso.")).toBeTruthy();
+    });
+    const call = fetchMock.mock.calls.find(([url]: [string]) => url.includes("/auth/change-password"));
+    expect(call).toBeTruthy();
+    expect(JSON.parse(call![1].body as string)).toEqual({
+      currentPassword: "senha-antiga",
+      newPassword: "senha-nova-123",
+    });
+  });
+
+  it("shows an inline error when the new passwords don't match, without calling the API", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    globalThis.fetch = fetchMock;
+
+    await openPasswordModal();
+    fireEvent.changeText(screen.getByPlaceholderText("Senha atual"), "senha-antiga");
+    fireEvent.changeText(screen.getByPlaceholderText("Nova senha"), "senha-nova-123");
+    fireEvent.changeText(screen.getByPlaceholderText("Confirmar nova senha"), "outra-coisa");
+    fireEvent.press(screen.getByText("Salvar nova senha"));
+
+    await waitFor(() => {
+      expect(screen.getByText("As senhas não coincidem.")).toBeTruthy();
+    });
+    expect(fetchMock.mock.calls.find(([url]: [string]) => url.includes("/auth/change-password"))).toBeFalsy();
+  });
+
+  it("shows the server's error message when the current password is wrong", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    globalThis.fetch = jest.fn().mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/auth/change-password")) {
+        return Promise.resolve({
+          ok: false,
+          json: async () => ({ message: "Senha atual incorreta." }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    await openPasswordModal();
+    fireEvent.changeText(screen.getByPlaceholderText("Senha atual"), "senha-errada");
+    fireEvent.changeText(screen.getByPlaceholderText("Nova senha"), "senha-nova-123");
+    fireEvent.changeText(screen.getByPlaceholderText("Confirmar nova senha"), "senha-nova-123");
+    fireEvent.press(screen.getByText("Salvar nova senha"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Senha atual incorreta.")).toBeTruthy();
+    });
+  });
+});
+
+describe("perfil screen Meu Perfil", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  async function openPersonalDataModal() {
+    renderRouter("src/app", { initialUrl: "/" });
+    fireEvent.press(screen.getByLabelText("Abrir perfil"));
+    await waitFor(() => {
+      expect(screen).toHavePathname("/perfil");
+    });
+    fireEvent.press(screen.getByText("Meu Perfil"));
+  }
+
+  const EMPTY_PERSONAL_DATA = {
+    rg: null,
+    dataNascimento: null,
+    estadoCivil: null,
+    enderecoRua: null,
+    enderecoNumero: null,
+    enderecoBairro: null,
+    enderecoCidade: null,
+    enderecoEstado: null,
+    enderecoCep: null,
+    phone: null,
+  };
+
+  it("saves personal data successfully", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    const fetchMock = jest.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (typeof url === "string" && url.includes("/employees/me/personal-data")) {
+        if (init?.method === "PATCH") {
+          return Promise.resolve({ ok: true, json: async () => ({ ...EMPTY_PERSONAL_DATA }) });
+        }
+        return Promise.resolve({ ok: true, json: async () => EMPTY_PERSONAL_DATA });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    globalThis.fetch = fetchMock;
+
+    await openPersonalDataModal();
+    fireEvent.changeText(screen.getByLabelText("RG"), "111222333");
+    fireEvent.changeText(screen.getByLabelText("Telefone"), "11987654321");
+    fireEvent.press(screen.getByText("Salvar"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Dados salvos com sucesso.")).toBeTruthy();
+    });
+    const call = fetchMock.mock.calls.find(
+      ([url, init]: [string, RequestInit]) =>
+        url.includes("/employees/me/personal-data") && init?.method === "PATCH",
+    );
+    expect(call).toBeTruthy();
+    const body = JSON.parse(call![1].body as string);
+    expect(body.rg).toBe("111222333");
+    expect(body.phone).toBe("11987654321");
+  });
+
+  it("prefills the form with previously saved data", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    globalThis.fetch = jest.fn().mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/employees/me/personal-data")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            ...EMPTY_PERSONAL_DATA,
+            rg: "999888777",
+            dataNascimento: "1990-05-20",
+            phone: "11987654321",
+          }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    await openPersonalDataModal();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("RG").props.value).toBe("999888777");
+    });
+    expect(screen.getByLabelText("Data de nascimento").props.value).toBe("20/05/1990");
+    expect(screen.getByLabelText("Telefone").props.value).toBe("11987654321");
+  });
+
+  it("rejects an invalid dataNascimento before calling the API", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => EMPTY_PERSONAL_DATA });
+    globalThis.fetch = fetchMock;
+
+    await openPersonalDataModal();
+    fireEvent.changeText(screen.getByLabelText("Data de nascimento"), "31-13-2000");
+    fireEvent.press(screen.getByText("Salvar"));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Data de nascimento inválida. Use o formato DD/MM/AAAA."),
+      ).toBeTruthy();
+    });
+    expect(
+      fetchMock.mock.calls.find(
+        ([url, init]: [string, RequestInit]) =>
+          url.includes("/employees/me/personal-data") && init?.method === "PATCH",
+      ),
+    ).toBeFalsy();
+  });
+
+  it("selects an estado civil from the picker", async () => {
+    await saveSessionToken(fakeJwt({ sub: "colaborador-1", role: "colaborador", name: "Ana" }));
+    globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => EMPTY_PERSONAL_DATA });
+
+    await openPersonalDataModal();
+    fireEvent.press(screen.getByLabelText("Estado civil"));
+    fireEvent.press(screen.getByText("Casado(a)"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Casado(a)")).toBeTruthy();
     });
   });
 });

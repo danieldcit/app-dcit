@@ -63,10 +63,29 @@
 }
 
 .panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 4px 8px 8px;
   margin-bottom: 4px;
   border-bottom: 1px solid var(--color-background-selected);
   font-weight: 600;
+  color: var(--color-text);
+}
+
+.markAllRead {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.markAllRead:hover {
   color: var(--color-text);
 }
 

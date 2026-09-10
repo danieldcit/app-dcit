@@ -19,3 +19,12 @@ export const ResetPasswordInputSchema = z.object({
   newPassword: z.string().min(8),
 });
 export type ResetPasswordInput = z.infer<typeof ResetPasswordInputSchema>;
+
+// Logged-in flow (vs. resetPassword above, which is the deslogado "esqueci
+// minha senha" flow keyed by identifier+code) — proves possession of the
+// account by the current password rather than a reset code.
+export const ChangePasswordInputSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8),
+});
+export type ChangePasswordInput = z.infer<typeof ChangePasswordInputSchema>;

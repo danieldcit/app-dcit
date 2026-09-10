@@ -206,6 +206,47 @@ describe('NotificationsService', () => {
     });
   });
 
+  describe('markAllRead', () => {
+    it('sets readAt on every unread notification for the caller, leaving already-read ones untouched', async () => {
+      const alreadyRead = await prisma.notification.create({
+        data: {
+          userId: 'user-1',
+          type: 'pagamento',
+          message: 'Antiga',
+          readAt: new Date('2026-09-01T00:00:00.000Z'),
+        },
+      });
+      const unread1 = await prisma.notification.create({
+        data: { userId: 'user-1', type: 'pagamento', message: 'Primeira' },
+      });
+      const unread2 = await prisma.notification.create({
+        data: { userId: 'user-1', type: 'pagamento', message: 'Segunda' },
+      });
+
+      await service.markAllRead('user-1');
+
+      const [readBefore, n1, n2] = await Promise.all([
+        prisma.notification.findUniqueOrThrow({ where: { id: alreadyRead.id } }),
+        prisma.notification.findUniqueOrThrow({ where: { id: unread1.id } }),
+        prisma.notification.findUniqueOrThrow({ where: { id: unread2.id } }),
+      ]);
+      expect(readBefore.readAt).toEqual(new Date('2026-09-01T00:00:00.000Z'));
+      expect(n1.readAt).not.toBeNull();
+      expect(n2.readAt).not.toBeNull();
+    });
+
+    it('does not mark another user\'s notifications as read', async () => {
+      const created = await prisma.notification.create({
+        data: { userId: 'user-1', type: 'pagamento', message: 'Teste' },
+      });
+
+      await service.markAllRead('user-2');
+
+      const untouched = await prisma.notification.findUniqueOrThrow({ where: { id: created.id } });
+      expect(untouched.readAt).toBeNull();
+    });
+  });
+
   describe('sendPontoPerdido', () => {
     afterEach(async () => {
       await prisma.employee.deleteMany({ where: { userId: { startsWith: 'user-ponto-perdido-' } } });

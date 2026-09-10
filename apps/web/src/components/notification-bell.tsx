@@ -1,23 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
+import { useClickOutside } from "@/lib/use-click-outside";
+
+import { useLocale } from "./locale-context";
 import { useNotificationContext } from "./notification-context";
 import { NotificationList } from "./notification-list";
 import styles from "./notification-bell.module.css";
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
-  const { items, unreadCount, handleClick } = useNotificationContext();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { items, unreadCount, handleClick, handleMarkAllRead } = useNotificationContext();
+  const { t } = useLocale();
+
+  useClickOutside(containerRef, () => setOpen(false), open);
 
   return (
-    <div className={styles.bell}>
+    <div className={styles.bell} ref={containerRef}>
       <button
         type="button"
         className={styles.bellButton}
         onClick={() => setOpen((current) => !current)}
-        aria-label="Notificações"
+        aria-label={t("Notificações")}
         aria-expanded={open}
       >
         <svg className={styles.bellIcon} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -42,7 +49,14 @@ export function NotificationBell() {
       </button>
       {open ? (
         <div className={styles.panel}>
-          <div className={styles.panelHeader}>Notificações</div>
+          <div className={styles.panelHeader}>
+            <span>{t("Notificações")}</span>
+            {unreadCount > 0 ? (
+              <button type="button" className={styles.markAllRead} onClick={handleMarkAllRead}>
+                {t("Marcar todas como lidas")}
+              </button>
+            ) : null}
+          </div>
           <div className={styles.panelListScroll}>
             <NotificationList
               notifications={items.slice(0, 10)}
@@ -53,7 +67,7 @@ export function NotificationBell() {
             />
           </div>
           <Link href="/notificacoes" className={styles.viewAll} onClick={() => setOpen(false)}>
-            Ver todas
+            {t("Ver todas")}
           </Link>
         </div>
       ) : null}

@@ -5,6 +5,7 @@ import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
 
 import { ExpandableTabBar } from "@/components/expandable-tab-bar";
+import { useLocaleContext } from "@/context/locale-context";
 import { decodeSessionToken } from "@/lib/jwt";
 import { fetchOnboardingStatus } from "@/lib/onboarding-api";
 import { getSessionToken } from "@/lib/session";
@@ -28,6 +29,7 @@ function tabIcon(outline: IconName, filled: IconName) {
 
 export default function TabsLayout() {
   const router = useRouter();
+  const { t } = useLocaleContext();
 
   // Expo Router has no server middleware — from the root Stack's
   // perspective (tabs) is a single screen, so this fires every time the
@@ -59,29 +61,29 @@ export default function TabsLayout() {
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <ExpandableTabBar {...props} />}>
       <Tabs.Screen
         name="index"
-        options={{ title: "Ponto", tabBarIcon: tabIcon("time-outline", "time") }}
+        options={{ title: t("Ponto"), tabBarIcon: tabIcon("time-outline", "time") }}
       />
       <Tabs.Screen
         name="banco-de-horas"
         options={{
-          title: "Banco de Horas",
+          title: t("Banco de Horas"),
           tabBarIcon: tabIcon("hourglass-outline", "hourglass"),
         }}
       />
       <Tabs.Screen
         name="ferias"
-        options={{ title: "Férias", tabBarIcon: tabIcon("sunny-outline", "sunny") }}
+        options={{ title: t("Férias"), tabBarIcon: tabIcon("sunny-outline", "sunny") }}
       />
       <Tabs.Screen
         name="documentos"
         options={{
-          title: "Documentos",
+          title: t("Documentos"),
           tabBarIcon: tabIcon("document-text-outline", "document-text"),
         }}
       />
       <Tabs.Screen
         name="mural"
-        options={{ title: "Mural", tabBarIcon: tabIcon("megaphone-outline", "megaphone") }}
+        options={{ title: t("Mural"), tabBarIcon: tabIcon("megaphone-outline", "megaphone") }}
       />
     </Tabs>
   );

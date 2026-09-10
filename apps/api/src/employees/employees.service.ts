@@ -9,6 +9,7 @@ import * as bcrypt from 'bcryptjs';
 import {
   EmployeeCreateInput,
   EmployeeScheduleUpdate,
+  MyPersonalDataUpdateInput,
 } from '@ponto-dcit/shared-types';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -156,6 +157,69 @@ export class EmployeesService {
     return this.prisma.employee.update({
       where: { userId },
       data: { expectedStartTime: input.expectedStartTime },
+    });
+  }
+
+  async getMyAvatar(userId: string): Promise<string | null> {
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId },
+      select: { avatarDataUrl: true },
+    });
+    return employee?.avatarDataUrl ?? null;
+  }
+
+  async setMyAvatar(userId: string, photo: string): Promise<string> {
+    const updated = await this.prisma.employee.update({
+      where: { userId },
+      data: { avatarDataUrl: photo },
+      select: { avatarDataUrl: true },
+    });
+    return updated.avatarDataUrl as string;
+  }
+
+  async removeMyAvatar(userId: string): Promise<void> {
+    await this.prisma.employee.update({
+      where: { userId },
+      data: { avatarDataUrl: null },
+    });
+  }
+
+  private static readonly MY_PERSONAL_DATA_SELECT = {
+    rg: true,
+    dataNascimento: true,
+    estadoCivil: true,
+    enderecoRua: true,
+    enderecoNumero: true,
+    enderecoBairro: true,
+    enderecoCidade: true,
+    enderecoEstado: true,
+    enderecoCep: true,
+    phone: true,
+  } satisfies Prisma.EmployeeSelect;
+
+  getMyPersonalData(userId: string) {
+    return this.prisma.employee.findUniqueOrThrow({
+      where: { userId },
+      select: EmployeesService.MY_PERSONAL_DATA_SELECT,
+    });
+  }
+
+  updateMyPersonalData(userId: string, input: MyPersonalDataUpdateInput) {
+    return this.prisma.employee.update({
+      where: { userId },
+      data: {
+        rg: input.rg,
+        dataNascimento: input.dataNascimento ? new Date(input.dataNascimento) : null,
+        estadoCivil: input.estadoCivil,
+        enderecoRua: input.enderecoRua,
+        enderecoNumero: input.enderecoNumero,
+        enderecoBairro: input.enderecoBairro,
+        enderecoCidade: input.enderecoCidade,
+        enderecoEstado: input.enderecoEstado,
+        enderecoCep: input.enderecoCep,
+        phone: input.phone,
+      },
+      select: EmployeesService.MY_PERSONAL_DATA_SELECT,
     });
   }
 

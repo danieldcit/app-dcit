@@ -10,3 +10,26 @@
   font-size: 24px;
   font-weight: 600;
 }
+
+.headingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.markAllRead {
+  appearance: none;
+  border: none;
+  background: var(--color-background-element);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.markAllRead:hover {
+  background: var(--color-background-selected);
+}

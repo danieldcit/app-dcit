@@ -256,6 +256,62 @@ test("clicking a notification on /notificacoes marks it read in place", async ({
     .toBeTruthy();
 });
 
+test("marking all as read from the bell panel clears the badge, including notifications beyond the visible 10", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  const notifications = Array.from({ length: 15 }, (_, i) => ({
+    id: `n${i + 1}`,
+    type: "pagamento",
+    category: "salario",
+    message: `Notificação ${i + 1}`,
+    link: null,
+    createdAt: `2026-09-${String(15 - i).padStart(2, "0")}T12:00:00.000Z`,
+    readAt: null,
+  }));
+  await mockApi(request, { notifications });
+
+  await page.goto("/");
+  await page.getByLabel("Notificações").click();
+  await expect(page.getByLabel("Notificações")).toContainText("9+");
+
+  await page.getByRole("button", { name: "Marcar todas como lidas" }).click();
+
+  await expect(page.getByLabel("Notificações")).not.toContainText(/\d/);
+
+  await expect
+    .poll(async () => {
+      const recorded = await getRecordedRequests(request);
+      return recorded.find((r) => r.method === "POST" && r.path === "/notifications/read-all");
+    })
+    .toBeTruthy();
+});
+
+test("marking all as read from /notificacoes clears the badge", async ({ page, context, request }) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request, {
+    notifications: [
+      {
+        id: "n1",
+        type: "pagamento",
+        category: "salario",
+        message: "Notificação 1",
+        link: null,
+        createdAt: "2026-09-01T12:00:00.000Z",
+        readAt: null,
+      },
+    ],
+  });
+
+  await page.goto("/notificacoes");
+  await page.getByRole("button", { name: "Marcar todas como lidas" }).click();
+
+  await expect(page.getByLabel("Notificações")).not.toContainText(/\d/);
+  await expect(page.getByRole("button", { name: "Marcar todas como lidas" })).toHaveCount(0);
+});
+
 test("/notificacoes is reachable for colaborador, gestor, and rh with no permission gate", async ({
   page,
   context,

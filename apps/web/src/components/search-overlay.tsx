@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { NAV_SECTIONS, type NavRole } from "@/lib/nav-sections";
 
+import { useLocale } from "./locale-context";
 import styles from "./app-shell.module.css";
 
 const DIACRITICS_PATTERN = /[̀-ͯ]/g;
@@ -19,6 +20,7 @@ export function SearchOverlay({ role }: { role: NavRole }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
+  const { t } = useLocale();
 
   const results = useMemo(() => {
     const needle = normalize(query.trim());
@@ -68,7 +70,7 @@ export function SearchOverlay({ role }: { role: NavRole }) {
           <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
           <path d="M21 21l-4.3-4.3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
-        Buscar
+        {t("Buscar")}
         <kbd className={styles.searchShortcut}>Ctrl K</kbd>
       </button>
 
@@ -82,7 +84,7 @@ export function SearchOverlay({ role }: { role: NavRole }) {
           ref={inputRef}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar telas..."
+          placeholder={t("Buscar telas...")}
           className={styles.searchInput}
         />
         <ul className={styles.searchResults}>
@@ -93,12 +95,14 @@ export function SearchOverlay({ role }: { role: NavRole }) {
                 className={styles.searchResultItem}
                 onClick={() => go(section.href)}
               >
-                {section.label}
+                {t(section.label)}
               </button>
             </li>
           ))}
           {query.trim() && results.length === 0 ? (
-            <li className={styles.searchEmpty}>Nada encontrado para &quot;{query}&quot;.</li>
+            <li className={styles.searchEmpty}>
+              {t("Nada encontrado para")} &quot;{query}&quot;.
+            </li>
           ) : null}
         </ul>
       </dialog>

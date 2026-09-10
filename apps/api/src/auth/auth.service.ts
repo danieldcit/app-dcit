@@ -221,6 +221,31 @@ export class AuthService {
     ]);
   }
 
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId },
+    });
+    if (!employee || !employee.passwordHash) {
+      throw new BadRequestException(
+        'Esta conta não usa login por senha.',
+      );
+    }
+    const matches = await bcrypt.compare(currentPassword, employee.passwordHash);
+    if (!matches) {
+      throw new UnauthorizedException('Senha atual incorreta.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await this.prisma.employee.update({
+      where: { userId },
+      data: { passwordHash },
+    });
+  }
+
   private resolveRole(claim: unknown): Role {
     const role =
       typeof claim === 'string' ? CLAIM_TO_ROLE.get(claim) : undefined;

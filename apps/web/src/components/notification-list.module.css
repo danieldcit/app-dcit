@@ -16,8 +16,9 @@
   width: 100%;
   text-align: left;
   border: none;
+  border-left: 3px solid transparent;
   border-radius: 8px;
-  padding: 10px 8px;
+  padding: 10px 8px 10px 11px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -30,7 +31,12 @@
 }
 
 .itemUnread {
-  background: rgba(255, 255, 255, 0.06);
+  border-left-color: var(--color-status-info);
+  background: color-mix(in srgb, var(--color-status-info) 12%, transparent);
+}
+
+.itemUnread:hover {
+  background: color-mix(in srgb, var(--color-status-info) 20%, transparent);
 }
 
 .itemUnread .message {

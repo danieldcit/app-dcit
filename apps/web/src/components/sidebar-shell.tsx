@@ -5,6 +5,7 @@ import Image from "next/image";
 
 import type { NavRole } from "@/lib/nav-sections";
 
+import { useLocale } from "./locale-context";
 import { NavLinks } from "./nav-links";
 import styles from "./app-shell.module.css";
 
@@ -16,6 +17,7 @@ export function SidebarShell({ role, restricted }: { role: NavRole; restricted?:
   // client-vs-server mismatch. Synced from the real stored value right
   // after mount instead.
   const [collapsed, setCollapsed] = useState(false);
+  const { t } = useLocale();
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true");
@@ -45,7 +47,7 @@ export function SidebarShell({ role, restricted }: { role: NavRole; restricted?:
         {collapsed ? null : (
           <div className={styles.brandText}>
             <span className={styles.brandTitle}>SGP</span>
-            <span className={styles.brandSubtitle}>Sistema de Gestão de Pessoas</span>
+            <span className={styles.brandSubtitle}>{t("Sistema de Gestão de Pessoas")}</span>
           </div>
         )}
         <button
@@ -53,8 +55,8 @@ export function SidebarShell({ role, restricted }: { role: NavRole; restricted?:
           className={styles.brandChevronButton}
           onClick={toggleCollapsed}
           aria-expanded={!collapsed}
-          aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-          title={collapsed ? "Expandir menu" : "Recolher menu"}
+          aria-label={collapsed ? t("Expandir menu") : t("Recolher menu")}
+          title={collapsed ? t("Expandir menu") : t("Recolher menu")}
         >
           <svg
             className={collapsed ? `${styles.brandChevron} ${styles.brandChevronCollapsed}` : styles.brandChevron}

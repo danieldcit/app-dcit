@@ -61,11 +61,13 @@ export {
   PasswordLoginInputSchema,
   ForgotPasswordInputSchema,
   ResetPasswordInputSchema,
+  ChangePasswordInputSchema,
 } from "./password-auth";
 export type {
   PasswordLoginInput,
   ForgotPasswordInput,
   ResetPasswordInput,
+  ChangePasswordInput,
 } from "./password-auth";
 export { PAGAMENTO_CATEGORIAS, SendPagamentoSchema } from "./notifications";
 export type { PagamentoCategoria, SendPagamentoInput } from "./notifications";
@@ -98,3 +100,7 @@ export { SignedContractInputSchema } from "./signed-contract";
 export type { SignedContractInput } from "./signed-contract";
 export { ONBOARDING_ACCESS_ITEMS, ONBOARDING_ACCESS_ITEM_LABELS } from "./onboarding-access";
 export type { OnboardingAccessItem } from "./onboarding-access";
+export { AvatarUploadInputSchema } from "./avatar";
+export type { AvatarUploadInput } from "./avatar";
+export { MyPersonalDataUpdateSchema } from "./my-personal-data";
+export type { MyPersonalDataUpdateInput } from "./my-personal-data";

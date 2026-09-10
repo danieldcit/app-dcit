@@ -12,6 +12,19 @@ const PORT = process.env.PORT || 3000;
 
 let seeded = {};
 let recordedRequests = [];
+let avatarPhoto = null;
+let myPersonalData = {
+  rg: null,
+  dataNascimento: null,
+  estadoCivil: null,
+  enderecoRua: null,
+  enderecoNumero: null,
+  enderecoBairro: null,
+  enderecoCidade: null,
+  enderecoEstado: null,
+  enderecoCep: null,
+  phone: null,
+};
 
 function seedKey(method, path) {
   return `${method} ${path}`;
@@ -54,6 +67,19 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/__reset") {
     seeded = {};
     recordedRequests = [];
+    avatarPhoto = null;
+    myPersonalData = {
+      rg: null,
+      dataNascimento: null,
+      estadoCivil: null,
+      enderecoRua: null,
+      enderecoNumero: null,
+      enderecoBairro: null,
+      enderecoCidade: null,
+      enderecoEstado: null,
+      enderecoCep: null,
+      phone: null,
+    };
     return sendJson(res, 204, null);
   }
 
@@ -219,6 +245,15 @@ const server = http.createServer(async (req, res) => {
   ) {
     return sendJson(res, 200, { ...body });
   }
+  // Registered before the generic ':userId/personal-data' regex below —
+  // that pattern's [^/]+ would otherwise also match the literal "me".
+  if (req.method === "GET" && url.pathname === "/employees/me/personal-data") {
+    return sendJson(res, 200, myPersonalData);
+  }
+  if (req.method === "PATCH" && url.pathname === "/employees/me/personal-data") {
+    myPersonalData = { ...myPersonalData, ...body };
+    return sendJson(res, 200, myPersonalData);
+  }
   if (req.method === "PATCH" && /^\/employees\/[^/]+\/personal-data$/.test(url.pathname)) {
     return sendJson(res, 200, { userId: url.pathname.split("/")[2], ...body });
   }
@@ -240,6 +275,17 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "DELETE" && /^\/employees\/[^/]+\/permanent$/.test(url.pathname)) {
     return sendJson(res, 204, null);
   }
+  if (req.method === "GET" && url.pathname === "/employees/me/avatar") {
+    return sendJson(res, 200, { photo: avatarPhoto });
+  }
+  if (req.method === "POST" && url.pathname === "/employees/me/avatar") {
+    avatarPhoto = body?.photo ?? null;
+    return sendJson(res, 200, { photo: avatarPhoto });
+  }
+  if (req.method === "DELETE" && url.pathname === "/employees/me/avatar") {
+    avatarPhoto = null;
+    return sendJson(res, 204, null);
+  }
   // Default: invalid credentials — tests seed a success response for their
   // own email/senha combination via seedResponse, same as any other POST.
   if (req.method === "POST" && url.pathname === "/auth/password-login") {
@@ -251,6 +297,11 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/auth/reset-password") {
     return sendJson(res, 400, { message: "Código inválido ou expirado." });
   }
+  // Default: succeeds — tests seed a failure response (e.g. wrong current
+  // password) via seedResponse when they need to exercise the error path.
+  if (req.method === "POST" && url.pathname === "/auth/change-password") {
+    return sendJson(res, 200, { ok: true });
+  }
 
   if (req.method === "GET" && /^\/notifications\/pagamentos\/status\/[^/]+$/.test(url.pathname)) {
     return sendJson(res, 200, []);
@@ -258,6 +309,10 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && url.pathname === "/notifications/mine") {
     return sendJson(res, 200, []);
+  }
+
+  if (req.method === "POST" && url.pathname === "/notifications/read-all") {
+    return sendJson(res, 200, {});
   }
 
   if (req.method === "POST" && /^\/notifications\/[^/]+\/read$/.test(url.pathname)) {

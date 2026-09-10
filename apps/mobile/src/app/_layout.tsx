@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from 'react';
 
 import { PontoProvider } from '@/context/ponto-context';
 import { NotificationProvider, useNotificationContext } from '@/context/notification-context';
+import { AppLocaleProvider } from '@/context/locale-context';
 import { AppThemeProvider, useThemeContext } from '@/context/theme-context';
 import { configureNotificationHandler, addNotificationTapListener } from '@/lib/push';
 
@@ -42,15 +43,17 @@ function NavigationThemeProvider({ children }: { children: ReactNode }) {
 
 export default function RootLayout() {
   return (
-    <AppThemeProvider>
-      <NavigationThemeProvider>
-        <PontoProvider>
-          <NotificationProvider>
-            <NotificationTapHandler />
-            <Stack screenOptions={{ headerShown: false }} />
-          </NotificationProvider>
-        </PontoProvider>
-      </NavigationThemeProvider>
-    </AppThemeProvider>
+    <AppLocaleProvider>
+      <AppThemeProvider>
+        <NavigationThemeProvider>
+          <PontoProvider>
+            <NotificationProvider>
+              <NotificationTapHandler />
+              <Stack screenOptions={{ headerShown: false }} />
+            </NotificationProvider>
+          </PontoProvider>
+        </NavigationThemeProvider>
+      </AppThemeProvider>
+    </AppLocaleProvider>
   );
 }

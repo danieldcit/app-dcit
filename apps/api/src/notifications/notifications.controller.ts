@@ -76,4 +76,10 @@ export class NotificationsController {
   markRead(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
     return this.notifications.markRead(id, req.user.sub);
   }
+
+  @UseGuards(AuthGuard)
+  @Post('read-all')
+  markAllRead(@Req() req: AuthenticatedRequest) {
+    return this.notifications.markAllRead(req.user.sub);
+  }
 }

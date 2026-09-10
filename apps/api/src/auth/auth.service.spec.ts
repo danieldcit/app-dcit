@@ -1,9 +1,16 @@
+// AuthService.changePassword tests below need a real Prisma-backed test
+// database — set before any import so PrismaService's PrismaClient picks it
+// up (same convention as notifications.service.spec.ts).
+process.env.DATABASE_URL = 'file:./test.db';
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { BadRequestException } from '@nestjs/common';
 import { Issuer } from 'openid-client';
+import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
 import { OIDC_CLIENT_CONFIG, type OidcClientConfig } from './oidc-client.token';
+import { PrismaService } from '../prisma/prisma.service';
 
 // Discovery is deferred to first use (see AuthService.getClient), so unit
 // tests never make a real network call — Issuer.discover is mocked to
@@ -47,6 +54,11 @@ describe('AuthService', () => {
         AuthService,
         { provide: OIDC_CLIENT_CONFIG, useValue: config },
         { provide: JwtService, useValue: jwt },
+        // Never exercised by the OIDC-flow tests below — AuthService's
+        // constructor just needs something injectable here (see the
+        // dedicated 'AuthService.changePassword' describe block further
+        // down for real Prisma-backed coverage of the password path).
+        { provide: PrismaService, useValue: {} },
       ],
     }).compile();
 
@@ -199,4 +211,94 @@ describe('AuthService', () => {
       ).rejects.toThrow(BadRequestException);
     },
   );
+});
+
+describe('AuthService.changePassword', () => {
+  let service: AuthService;
+  let prisma: PrismaService;
+
+  const config: OidcClientConfig = {
+    issuerUrl: 'https://mock-idp.test',
+    clientId: 'test-client',
+    clientSecret: 'test-secret',
+    redirectUri: 'http://localhost:3000/auth/callback',
+  };
+
+  beforeAll(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: OIDC_CLIENT_CONFIG, useValue: config },
+        { provide: JwtService, useValue: { sign: jest.fn() } },
+        PrismaService,
+      ],
+    }).compile();
+
+    service = module.get(AuthService);
+    prisma = module.get(PrismaService);
+    await prisma.onModuleInit();
+  });
+
+  afterEach(async () => {
+    await prisma.employee.deleteMany({ where: { userId: { startsWith: 'user-change-pw-' } } });
+  });
+
+  afterAll(async () => {
+    await prisma.onModuleDestroy();
+  });
+
+  it('changes the password when the current password matches', async () => {
+    const passwordHash = await bcrypt.hash('senha-antiga', 10);
+    await prisma.employee.create({
+      data: {
+        userId: 'user-change-pw-1',
+        name: 'Ana',
+        role: 'colaborador',
+        hireDate: new Date('2024-01-01'),
+        email: 'ana@dev.local',
+        passwordHash,
+      },
+    });
+
+    await service.changePassword('user-change-pw-1', 'senha-antiga', 'senha-nova-123');
+
+    const updated = await prisma.employee.findUniqueOrThrow({ where: { userId: 'user-change-pw-1' } });
+    expect(await bcrypt.compare('senha-nova-123', updated.passwordHash!)).toBe(true);
+  });
+
+  it('rejects when the current password is wrong', async () => {
+    const passwordHash = await bcrypt.hash('senha-antiga', 10);
+    await prisma.employee.create({
+      data: {
+        userId: 'user-change-pw-2',
+        name: 'Ana',
+        role: 'colaborador',
+        hireDate: new Date('2024-01-01'),
+        email: 'ana2@dev.local',
+        passwordHash,
+      },
+    });
+
+    await expect(
+      service.changePassword('user-change-pw-2', 'senha-errada', 'senha-nova-123'),
+    ).rejects.toThrow('Senha atual incorreta.');
+
+    const untouched = await prisma.employee.findUniqueOrThrow({ where: { userId: 'user-change-pw-2' } });
+    expect(untouched.passwordHash).toBe(passwordHash);
+  });
+
+  it('rejects when the account has no password set (SSO-only)', async () => {
+    await prisma.employee.create({
+      data: {
+        userId: 'user-change-pw-3',
+        name: 'Ana',
+        role: 'colaborador',
+        hireDate: new Date('2024-01-01'),
+      },
+    });
+
+    await expect(
+      service.changePassword('user-change-pw-3', 'qualquer', 'senha-nova-123'),
+    ).rejects.toThrow('Esta conta não usa login por senha.');
+  });
 });

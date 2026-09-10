@@ -143,6 +143,51 @@ describe('EmployeesController guard metadata', () => {
     ) as unknown[] | undefined;
     expect(roles).toEqual(['gestor', 'rh']);
   });
+
+  it('applies only AuthGuard (no role restriction) to getMyAvatar', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      EmployeesController.prototype.getMyAvatar,
+    ) as unknown[] | undefined;
+    expect(guards).toEqual([AuthGuard]);
+  });
+
+  it('applies only AuthGuard (no role restriction) to setMyAvatar', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      EmployeesController.prototype.setMyAvatar,
+    ) as unknown[] | undefined;
+    expect(guards).toEqual([AuthGuard]);
+  });
+
+  it('applies only AuthGuard (no role restriction) to removeMyAvatar', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      EmployeesController.prototype.removeMyAvatar,
+    ) as unknown[] | undefined;
+    expect(guards).toEqual([AuthGuard]);
+  });
+
+  it('applies only AuthGuard (no role restriction) to getMyPersonalData', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      EmployeesController.prototype.getMyPersonalData,
+    ) as unknown[] | undefined;
+    expect(guards).toEqual([AuthGuard]);
+  });
+
+  it('applies only AuthGuard (no role restriction) to updateMyPersonalData', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      EmployeesController.prototype.updateMyPersonalData,
+    ) as unknown[] | undefined;
+    expect(guards).toEqual([AuthGuard]);
+  });
 });
 
 describe('EmployeesController', () => {
@@ -156,6 +201,11 @@ describe('EmployeesController', () => {
     restore: jest.fn(),
     permanentlyDelete: jest.fn(),
     updatePersonalData: jest.fn(),
+    getMyAvatar: jest.fn(),
+    setMyAvatar: jest.fn(),
+    removeMyAvatar: jest.fn(),
+    getMyPersonalData: jest.fn(),
+    updateMyPersonalData: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -169,6 +219,88 @@ describe('EmployeesController', () => {
       .compile();
 
     controller = module.get(EmployeesController);
+  });
+
+  const PHOTO_DATA_URL = 'data:image/jpeg;base64,ZmFrZS1pbWFnZS1kYXRh';
+  const AUTH_REQ = { user: { sub: 'user-1', role: 'colaborador', name: 'Ana' } } as never;
+
+  it('returns the caller\'s avatar', async () => {
+    serviceMock.getMyAvatar.mockResolvedValue(PHOTO_DATA_URL);
+
+    const result = await controller.getMyAvatar(AUTH_REQ);
+
+    expect(result).toEqual({ photo: PHOTO_DATA_URL });
+    expect(serviceMock.getMyAvatar).toHaveBeenCalledWith('user-1');
+  });
+
+  it('sets the avatar with a valid payload', async () => {
+    serviceMock.setMyAvatar.mockResolvedValue(PHOTO_DATA_URL);
+
+    const result = await controller.setMyAvatar({ photo: PHOTO_DATA_URL }, AUTH_REQ);
+
+    expect(result).toEqual({ photo: PHOTO_DATA_URL });
+    expect(serviceMock.setMyAvatar).toHaveBeenCalledWith('user-1', PHOTO_DATA_URL);
+  });
+
+  it('rejects an invalid avatar payload before calling the service', async () => {
+    await expect(
+      controller.setMyAvatar({ photo: 'file:///local.jpg' }, AUTH_REQ),
+    ).rejects.toThrow(BadRequestException);
+    expect(serviceMock.setMyAvatar).not.toHaveBeenCalled();
+  });
+
+  it('removes the avatar', async () => {
+    serviceMock.removeMyAvatar.mockResolvedValue(undefined);
+
+    await controller.removeMyAvatar(AUTH_REQ);
+
+    expect(serviceMock.removeMyAvatar).toHaveBeenCalledWith('user-1');
+  });
+
+  const VALID_PERSONAL_DATA = {
+    rg: '111222333',
+    dataNascimento: '1995-03-10',
+    estadoCivil: 'casado',
+    enderecoRua: 'Rua Nova',
+    enderecoNumero: '42',
+    enderecoBairro: 'Jardins',
+    enderecoCidade: 'São Paulo',
+    enderecoEstado: 'SP',
+    enderecoCep: '01310100',
+    phone: '11912345678',
+  };
+
+  it('returns the caller\'s personal data', async () => {
+    serviceMock.getMyPersonalData.mockResolvedValue(VALID_PERSONAL_DATA);
+
+    const result = await controller.getMyPersonalData(AUTH_REQ);
+
+    expect(result).toEqual(VALID_PERSONAL_DATA);
+    expect(serviceMock.getMyPersonalData).toHaveBeenCalledWith('user-1');
+  });
+
+  it('updates the personal data with a valid payload', async () => {
+    serviceMock.updateMyPersonalData.mockResolvedValue(VALID_PERSONAL_DATA);
+
+    const result = await controller.updateMyPersonalData(VALID_PERSONAL_DATA, AUTH_REQ);
+
+    expect(result).toEqual(VALID_PERSONAL_DATA);
+    expect(serviceMock.updateMyPersonalData).toHaveBeenCalledWith('user-1', VALID_PERSONAL_DATA);
+  });
+
+  it('rejects a payload with an invalid enderecoEstado before calling the service', async () => {
+    await expect(
+      controller.updateMyPersonalData({ ...VALID_PERSONAL_DATA, enderecoEstado: 'ZZ' }, AUTH_REQ),
+    ).rejects.toThrow(BadRequestException);
+    expect(serviceMock.updateMyPersonalData).not.toHaveBeenCalled();
+  });
+
+  it('rejects a payload missing a required key before calling the service', async () => {
+    const { phone: _phone, ...incomplete } = VALID_PERSONAL_DATA;
+    await expect(controller.updateMyPersonalData(incomplete, AUTH_REQ)).rejects.toThrow(
+      BadRequestException,
+    );
+    expect(serviceMock.updateMyPersonalData).not.toHaveBeenCalled();
   });
 
   it('returns the employee roster', async () => {

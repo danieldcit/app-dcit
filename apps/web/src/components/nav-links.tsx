@@ -17,6 +17,7 @@ import {
   type SidebarGroup,
   type SidebarLink,
 } from "@/lib/nav-sections";
+import { useLocale } from "./locale-context";
 import { NavIcon } from "./nav-icon";
 
 import styles from "./app-shell.module.css";
@@ -49,16 +50,17 @@ function NavLinkItem({
   collapsed?: boolean;
 }) {
   const active = isLinkActive(link, pathname, searchParams);
+  const { t } = useLocale();
   return (
     <li>
       <Link
         href={link.href}
         className={active ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink}
         aria-current={active ? "page" : undefined}
-        title={collapsed ? link.label : undefined}
+        title={collapsed ? t(link.label) : undefined}
       >
         <NavIcon href={link.href} className={styles.navItemIcon} />
-        <span className={styles.navLabel}>{link.label}</span>
+        <span className={styles.navLabel}>{t(link.label)}</span>
       </Link>
     </li>
   );
@@ -86,6 +88,7 @@ function NavGroupItem({
   // like a plain link (icon + tooltip, straight to its own href) instead of
   // showing a chevron that can never reveal anything.
   const showChildren = open && !collapsed;
+  const { t } = useLocale();
 
   return (
     <div className={styles.navGroup}>
@@ -94,10 +97,10 @@ function NavGroupItem({
           href={group.href}
           className={styles.navGroupLink}
           aria-current={active ? "page" : undefined}
-          title={collapsed ? group.label : undefined}
+          title={collapsed ? t(group.label) : undefined}
         >
           <NavIcon href={group.href} className={styles.navItemIcon} />
-          <span className={styles.navLabel}>{group.label}</span>
+          <span className={styles.navLabel}>{t(group.label)}</span>
         </Link>
         {collapsed ? null : (
           <button
@@ -105,7 +108,9 @@ function NavGroupItem({
             className={styles.navGroupToggle}
             onClick={() => setOpen((current) => !current)}
             aria-expanded={open}
-            aria-label={open ? `Recolher ${group.label}` : `Expandir ${group.label}`}
+            aria-label={
+              open ? `${t("Recolher")} ${t(group.label)}` : `${t("Expandir")} ${t(group.label)}`
+            }
           >
             <svg
               className={open ? `${styles.navChevron} ${styles.navChevronOpen}` : styles.navChevron}

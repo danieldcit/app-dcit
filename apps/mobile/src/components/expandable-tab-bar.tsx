@@ -6,6 +6,7 @@ import { Tabs, useRouter } from "expo-router";
 import type { ComponentProps } from "react";
 
 import { ThemedText } from "@/components/themed-text";
+import { useLocaleContext } from "@/context/locale-context";
 import { useTheme } from "@/hooks/use-theme";
 import { Radius, Spacing } from "@/constants/theme";
 import { useNotificationContext } from "@/context/notification-context";
@@ -24,6 +25,7 @@ export function ExpandableTabBar({ state, descriptors, navigation }: ExpandableT
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { unreadCount } = useNotificationContext();
+  const { t } = useLocaleContext();
   const [expanded, setExpanded] = useState(false);
   const [heightAnim] = useState(() => new Animated.Value(0));
 
@@ -72,14 +74,14 @@ export function ExpandableTabBar({ state, descriptors, navigation }: ExpandableT
           <>
             <Pressable style={styles.extraItem} onPress={() => goToShortcut("/onboarding")}>
               <Ionicons name="rocket-outline" size={22} color={theme.textSecondary} />
-              <ThemedText type="small">Onboarding</ThemedText>
+              <ThemedText type="small">{t("Onboarding")}</ThemedText>
             </Pressable>
             <Pressable style={styles.extraItem} onPress={() => goToShortcut("/notificacoes")}>
               <View>
                 <Ionicons name="notifications-outline" size={22} color={theme.textSecondary} />
                 {unreadCount > 0 ? <View style={[styles.badge, { backgroundColor: theme.accent }]} /> : null}
               </View>
-              <ThemedText type="small">Notificações</ThemedText>
+              <ThemedText type="small">{t("Notificações")}</ThemedText>
             </Pressable>
           </>
         ) : null}
@@ -96,7 +98,7 @@ export function ExpandableTabBar({ state, descriptors, navigation }: ExpandableT
           },
         ]}
       >
-        <Pressable style={styles.expandHandle} onPress={toggle} accessibilityLabel="Mais opções">
+        <Pressable style={styles.expandHandle} onPress={toggle} accessibilityLabel={t("Mais opções")}>
           <Ionicons name={expanded ? "chevron-down" : "chevron-up"} size={16} color={theme.textSecondary} />
         </Pressable>
 

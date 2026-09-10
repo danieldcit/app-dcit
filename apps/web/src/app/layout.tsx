@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 
+import { LocaleProvider } from "@/components/locale-context";
+import { getLocale } from "@/lib/get-locale";
+import { LOCALE_BCP47 } from "@/lib/locale";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,10 +23,11 @@ export const metadata: Metadata = {
   description: "Registro de ponto da DCIT Tecnologia",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
   return (
     <html
-      lang="pt-BR"
+      lang={LOCALE_BCP47[locale]}
       data-theme="light"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
@@ -36,7 +41,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <LocaleProvider initialLocale={locale}>{children}</LocaleProvider>
+      </body>
     </html>
   );
 }

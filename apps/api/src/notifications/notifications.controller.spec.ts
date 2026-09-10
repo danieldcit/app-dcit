@@ -51,6 +51,15 @@ describe('NotificationsController guard metadata', () => {
     ) as unknown[] | undefined;
     expect(guards).toEqual([AuthGuard]);
   });
+
+  it('applies only AuthGuard (no role restriction) to markAllRead', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      NotificationsController.prototype.markAllRead,
+    ) as unknown[] | undefined;
+    expect(guards).toEqual([AuthGuard]);
+  });
 });
 
 describe('NotificationsController.pagamentoStatus', () => {
