@@ -54,6 +54,7 @@ const configuration = {
         'http://192.168.1.23:3000/auth/callback',
         'http://192.168.1.3:3000/auth/callback',
         'http://192.168.1.9:3000/auth/callback',
+        'http://192.168.1.22:3000/auth/callback',
       ],
       grant_types: ['authorization_code'],
       response_types: ['code'],

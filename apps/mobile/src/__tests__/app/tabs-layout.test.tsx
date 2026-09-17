@@ -94,13 +94,10 @@ describe("(tabs) navigation", () => {
     expect(screen).toHavePathname("/");
   });
 
-  it("expands to reveal Onboarding and Notificações shortcuts, then navigates and collapses", async () => {
+  it("shows horizontal shortcuts after the main tabs and navigates to Onboarding", async () => {
     renderRouter("src/app", { initialUrl: "/" });
 
-    expect(screen.queryByText("Onboarding")).toBeNull();
-    fireEvent.press(screen.getByLabelText("Mais opções"));
-
-    expect(await screen.findByText("Onboarding")).toBeTruthy();
+    expect(screen.getByText("Onboarding")).toBeTruthy();
     expect(screen.getByText("Notificações")).toBeTruthy();
 
     fireEvent.press(screen.getByText("Onboarding"));

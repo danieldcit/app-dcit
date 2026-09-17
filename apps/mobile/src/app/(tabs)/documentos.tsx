@@ -8,7 +8,6 @@ import { AdmissionDocumentBox } from "@/components/admission-document-box";
 import { ContractBox } from "@/components/contract-box";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status-badge";
-import { TabBackground } from "@/components/tab-background";
 import { ThemedButton } from "@/components/themed-button";
 import { ThemedText } from "@/components/themed-text";
 import { useTheme } from "@/hooks/use-theme";
@@ -53,7 +52,7 @@ export default function DocumentosScreen() {
   const [category, setCategory] = useState<Category>("atestados");
 
   return (
-    <TabBackground>
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <ThemedText type="title" style={styles.pageTitle}>
           Documentos
@@ -85,7 +84,7 @@ export default function DocumentosScreen() {
         {category === "certificacoes" ? <CertificacoesSection /> : null}
         {category === "contrato" ? <ContratoSection /> : null}
       </ScrollView>
-    </TabBackground>
+    </View>
   );
 }
 
@@ -557,6 +556,9 @@ function ContratoSection() {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   scrollContent: {
     padding: Spacing.four,
     gap: Spacing.four,
