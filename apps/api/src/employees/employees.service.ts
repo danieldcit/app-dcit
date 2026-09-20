@@ -223,6 +223,13 @@ export class EmployeesService {
     });
   }
 
+  updateTipoContratacao(userId: string, tipoContratacao: 'CLT' | 'PJ' | 'terceirizado' | null) {
+    return this.prisma.employee.update({
+      where: { userId },
+      data: { tipoContratacao },
+    });
+  }
+
   async create(input: EmployeeCreateInput) {
     try {
       return await this.prisma.employee.create({

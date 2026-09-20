@@ -188,6 +188,23 @@ describe('EmployeesController guard metadata', () => {
     ) as unknown[] | undefined;
     expect(guards).toEqual([AuthGuard]);
   });
+
+  it('applies AuthGuard and RolesGuard to updateTipoContratacao, restricted to gestor', () => {
+    const guards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      EmployeesController.prototype.updateTipoContratacao,
+    ) as unknown[] | undefined;
+    expect(guards).toContain(AuthGuard);
+    expect(guards).toContain(RolesGuard);
+
+    const roles = Reflect.getMetadata(
+      ROLES_KEY,
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      EmployeesController.prototype.updateTipoContratacao,
+    ) as unknown[] | undefined;
+    expect(roles).toEqual(['gestor']);
+  });
 });
 
 describe('EmployeesController', () => {
@@ -206,6 +223,7 @@ describe('EmployeesController', () => {
     removeMyAvatar: jest.fn(),
     getMyPersonalData: jest.fn(),
     updateMyPersonalData: jest.fn(),
+    updateTipoContratacao: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -450,5 +468,19 @@ describe('EmployeesController', () => {
       }),
     ).rejects.toThrow(BadRequestException);
     expect(serviceMock.updatePersonalData).not.toHaveBeenCalled();
+  });
+
+  it('updates tipoContratacao with a valid payload', async () => {
+    serviceMock.updateTipoContratacao.mockResolvedValue({ userId: 'u1', tipoContratacao: 'PJ' });
+
+    await controller.updateTipoContratacao('u1', { tipoContratacao: 'PJ' });
+
+    expect(serviceMock.updateTipoContratacao).toHaveBeenCalledWith('u1', 'PJ');
+  });
+
+  it('rejects an invalid tipoContratacao value', async () => {
+    await expect(controller.updateTipoContratacao('u1', { tipoContratacao: 'estagiario' })).rejects.toThrow(
+      BadRequestException,
+    );
   });
 });

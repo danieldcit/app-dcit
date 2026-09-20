@@ -227,3 +227,46 @@ describe('EmployeesService personal-data self-service', () => {
     });
   });
 });
+
+describe('EmployeesService.updateTipoContratacao', () => {
+  let service: EmployeesService;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [EmployeesService, PrismaService],
+    }).compile();
+
+    service = module.get(EmployeesService);
+    prisma = module.get(PrismaService);
+    await prisma.onModuleInit();
+  });
+
+  afterEach(async () => {
+    await prisma.employee.deleteMany({ where: { userId: { startsWith: 'emp-test-tipo-' } } });
+  });
+
+  afterAll(async () => {
+    await prisma.onModuleDestroy();
+  });
+
+  it('sets tipoContratacao on the employee row', async () => {
+    const created = await prisma.employee.create({
+      data: { userId: 'emp-test-tipo-1', name: 'Teste Tipo', role: 'colaborador', hireDate: new Date('2025-01-01') },
+    });
+
+    const updated = await service.updateTipoContratacao(created.userId, 'PJ');
+
+    expect(updated.tipoContratacao).toBe('PJ');
+  });
+
+  it('accepts null to revert to não-classificado', async () => {
+    const created = await prisma.employee.create({
+      data: { userId: 'emp-test-tipo-2', name: 'Teste Tipo 2', role: 'colaborador', hireDate: new Date('2025-01-01'), tipoContratacao: 'CLT' },
+    });
+
+    const updated = await service.updateTipoContratacao(created.userId, null);
+
+    expect(updated.tipoContratacao).toBeNull();
+  });
+});

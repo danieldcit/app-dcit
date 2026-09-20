@@ -17,6 +17,7 @@ import {
   EmployeeCreateSchema,
   EmployeeScheduleUpdateSchema,
   MyPersonalDataUpdateSchema,
+  TipoContratacaoUpdateSchema,
 } from '@ponto-dcit/shared-types';
 import { EmployeesService } from './employees.service';
 import { AuthGuard } from '../auth/auth-guard';
@@ -122,6 +123,17 @@ export class EmployeesController {
       throw new BadRequestException(result.error.flatten());
     }
     return this.employees.updateSchedule(userId, result.data);
+  }
+
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('gestor')
+  @Patch(':userId/tipo-contratacao')
+  async updateTipoContratacao(@Param('userId') userId: string, @Body() body: unknown) {
+    const result = TipoContratacaoUpdateSchema.safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten());
+    }
+    return this.employees.updateTipoContratacao(userId, result.data.tipoContratacao);
   }
 
   @UseGuards(AuthGuard)
