@@ -26,5 +26,10 @@ export async function apiFetchJson<T>(path: string): Promise<T> {
   if (!res.ok) {
     throw new Error(`${path} responded with ${res.status}`);
   }
-  return res.json() as Promise<T>;
+  // Nest sends an empty body (not the text "null") when a controller
+  // resolves null/undefined — e.g. GET /fiscal/parametros before any row
+  // exists — so guard against that before calling res.json(), which throws
+  // "Unexpected end of JSON input" on an empty string.
+  const text = await res.text();
+  return (text === "" ? null : JSON.parse(text)) as T;
 }
