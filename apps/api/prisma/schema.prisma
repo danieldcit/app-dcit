@@ -54,6 +54,7 @@ model Employee {
   cargo             String? // função técnica, ex: "desenvolvedor" — ver CARGOS em shared-types
   team              String? // time/squad, ex: "SGN360" — texto livre, sem lista fixa
   nivel             String? // "junior" | "pleno" | "senior" | "especialista"
+  tipoContratacao   String? // "CLT" | "PJ" | "terceirizado" — null = não classificado
   convencaoId       String? // id de ConvencaoColetiva, sem FK — resolvido na camada de serviço
   salarioMensal     Float? // R$, mesma visibilidade de cpf/rg (RH e gestor)
   hireDate          DateTime
@@ -458,4 +459,22 @@ model WorkedHoursEntry {
 
   @@unique([userId, date])
   @@index([date])
+}
+
+// --- Fiscal & Tributos 2026 ------------------------------------------------
+
+// Uma única linha (id fixo "default") com os parâmetros fiscais da empresa.
+// Nasce vazia — o sistema nunca deve inventar uma alíquota; o dashboard
+// mostra um estado "configure os parâmetros" até alguém preencher com os
+// números reais da empresa (ver design spec, §1/§2.2).
+model FiscalParameters {
+  id                      String    @id @default("default")
+  inssPatronalPercent     Float?
+  ratPercent              Float? // 1 | 2 | 3, conforme grau de risco da atividade
+  fgtsPercent             Float?
+  sujeitoDesoneracaoFolha Boolean?
+  fonteLegal              String? // texto livre citando lei/norma e enquadramento
+  vigenciaData            DateTime?
+  updatedAt               DateTime  @updatedAt
+  updatedByUserId         String?
 }
