@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { FiscalParametersInput } from '@ponto-dcit/shared-types';
 
 type DashboardFilters = { team?: string; tipoContratacao?: string };
 
@@ -60,5 +61,17 @@ export class FiscalService {
       custoMedioPorColaborador: headcountTotal > 0 ? custoMensalTotal / headcountTotal : 0,
       colaboradoresSemSalario,
     };
+  }
+
+  getParametros() {
+    return this.prisma.fiscalParameters.findUnique({ where: { id: 'default' } });
+  }
+
+  updateParametros(input: FiscalParametersInput, updatedByUserId: string) {
+    return this.prisma.fiscalParameters.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', ...input, updatedByUserId },
+      update: { ...input, updatedByUserId },
+    });
   }
 }

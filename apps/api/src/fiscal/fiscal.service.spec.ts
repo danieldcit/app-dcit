@@ -101,3 +101,67 @@ describe('FiscalService.getDashboard', () => {
     expect(result.custoMedioPorColaborador).toBe(0);
   });
 });
+
+describe('FiscalService parametros', () => {
+  let service: FiscalService;
+  let prisma: PrismaService;
+
+  beforeAll(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [FiscalService, PrismaService],
+    }).compile();
+    service = module.get(FiscalService);
+    prisma = module.get(PrismaService);
+    await prisma.onModuleInit();
+  });
+
+  afterEach(async () => {
+    await prisma.fiscalParameters.deleteMany({ where: { id: 'default' } });
+  });
+
+  afterAll(async () => {
+    await prisma.onModuleDestroy();
+  });
+
+  it('returns null when parameters were never configured', async () => {
+    const result = await service.getParametros();
+    expect(result).toBeNull();
+  });
+
+  it('creates the singleton row on first update', async () => {
+    const updated = await service.updateParametros(
+      {
+        inssPatronalPercent: 20,
+        ratPercent: 1,
+        fgtsPercent: 8,
+        sujeitoDesoneracaoFolha: true,
+        fonteLegal: 'Lei 14.973/2024',
+        vigenciaData: new Date('2026-01-01'),
+      },
+      'gestor-1',
+    );
+
+    expect(updated.id).toBe('default');
+    expect(updated.ratPercent).toBe(1);
+    expect(updated.updatedByUserId).toBe('gestor-1');
+
+    const fetched = await service.getParametros();
+    expect(fetched?.fonteLegal).toBe('Lei 14.973/2024');
+  });
+
+  it('overwrites the existing singleton row on a second update, not create a duplicate', async () => {
+    await service.updateParametros(
+      { inssPatronalPercent: 20, ratPercent: 1, fgtsPercent: 8, sujeitoDesoneracaoFolha: false, fonteLegal: 'A', vigenciaData: null },
+      'gestor-1',
+    );
+    await service.updateParametros(
+      { inssPatronalPercent: 20, ratPercent: 3, fgtsPercent: 8, sujeitoDesoneracaoFolha: true, fonteLegal: 'B', vigenciaData: null },
+      'gestor-2',
+    );
+
+    const all = await prisma.fiscalParameters.findMany();
+    expect(all).toHaveLength(1);
+    expect(all[0].ratPercent).toBe(3);
+    expect(all[0].updatedByUserId).toBe('gestor-2');
+  });
+});
