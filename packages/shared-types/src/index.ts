@@ -104,3 +104,7 @@ export { AvatarUploadInputSchema } from "./avatar";
 export type { AvatarUploadInput } from "./avatar";
 export { MyPersonalDataUpdateSchema } from "./my-personal-data";
 export type { MyPersonalDataUpdateInput } from "./my-personal-data";
+export { TipoContratacaoUpdateSchema } from "./tipo-contratacao";
+export type { TipoContratacaoUpdate } from "./tipo-contratacao";
+export { FiscalParametersInputSchema } from "./fiscal-parameters";
+export type { FiscalParametersInput } from "./fiscal-parameters";
