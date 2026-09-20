@@ -8,6 +8,7 @@ import {
   COLABORADOR_SIDEBAR,
   COLABORADORES_GROUP,
   GESTOR_CAREER_LINK,
+  GESTOR_FISCAL_LINK,
   GESTOR_SIDEBAR_ORDER,
   isSidebarGroup,
   NAV_SECTIONS,
@@ -212,6 +213,7 @@ export function NavLinks({
         </ul>
         <ul className={styles.nav}>
           <NavLinkItem link={GESTOR_CAREER_LINK} pathname={pathname} searchParams={searchParams} collapsed={collapsed} />
+          <NavLinkItem link={GESTOR_FISCAL_LINK} pathname={pathname} searchParams={searchParams} collapsed={collapsed} />
         </ul>
       </nav>
     );

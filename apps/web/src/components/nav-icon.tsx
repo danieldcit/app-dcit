@@ -135,6 +135,13 @@ const ICON_PATHS: Record<string, ReactNode> = {
       <path d="M15 7h6v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
+  "/fiscal-tributos": (
+    <>
+      <path d="M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="7.5" cy="7.5" r="2.5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="16.5" cy="16.5" r="2.5" stroke="currentColor" strokeWidth="2" />
+    </>
+  ),
 };
 
 const DEFAULT_ICON: ReactNode = <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />;

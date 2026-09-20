@@ -119,3 +119,11 @@ export const GESTOR_CAREER_LINK: SidebarLink = {
   href: "/gestao-carreiras",
   label: "Gestão de Carreiras",
 };
+
+// Gestor-only, same reasoning as GESTOR_CAREER_LINK above — company-wide
+// fiscal/cost data, not something rh or colaborador see (decided in
+// conversation, 2026-09-20).
+export const GESTOR_FISCAL_LINK: SidebarLink = {
+  href: "/fiscal-tributos",
+  label: "Fiscal & Tributos 2026",
+};
