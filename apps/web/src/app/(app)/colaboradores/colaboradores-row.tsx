@@ -33,15 +33,17 @@ type Employee = {
 export function ColaboradoresRow({
   employee,
   convencoes,
+  highlighted = false,
 }: {
   employee: Employee;
   convencoes: { id: string; nome: string }[];
+  highlighted?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(updateSchedule, { error: null });
   const confirmDeleteRef = useRef<HTMLDialogElement>(null);
 
   return (
-    <li className={styles.item}>
+    <li className={highlighted ? `${styles.item} ${styles.itemHighlighted}` : styles.item}>
       <span className={styles.itemName}>
         {employee.name}
       </span>

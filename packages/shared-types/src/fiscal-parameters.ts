@@ -3,6 +3,7 @@ import { z } from "zod";
 export const FiscalParametersInputSchema = z.object({
   inssPatronalPercent: z.coerce.number().nonnegative().nullable(),
   ratPercent: z.coerce.number().min(1).max(3).nullable(),
+  terceirosPercent: z.coerce.number().nonnegative().nullable(),
   fgtsPercent: z.coerce.number().nonnegative().nullable(),
   // Booleano de verdade, não z.coerce.boolean() — esse coage QUALQUER string
   // não-vazia (inclusive "false") para true. O caller converte o checkbox

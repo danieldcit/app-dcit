@@ -31,7 +31,11 @@ type Employee = {
   enderecoCep: string | null;
 };
 
-export default async function ColaboradoresPage() {
+export default async function ColaboradoresPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await getSession();
   if (!session || (session.role !== "rh" && session.role !== "gestor")) {
     return <EmptyState title="Sem permissão" description="Esta página é restrita a RH e gestores." />;
@@ -41,6 +45,12 @@ export default async function ColaboradoresPage() {
     apiFetchJson<Employee[]>("/employees"),
     apiFetchJson<{ id: string; nome: string }[]>("/convencoes").catch(() => []),
   ]);
+
+  const params = await searchParams;
+  const highlightIds =
+    typeof params.semSalario === "string" && params.semSalario
+      ? params.semSalario.split(",").filter(Boolean)
+      : [];
 
   return (
     <div className={styles.page}>
@@ -52,10 +62,16 @@ export default async function ColaboradoresPage() {
         Defina o horário esperado de entrada de cada colaborador — usado para marcá-lo como
         atrasado no painel de presença.
       </p>
+      {highlightIds.length > 0 ? (
+        <p className={styles.highlightBanner}>
+          Mostrando {highlightIds.length} colaborador(es) sem salário cadastrado, destacado(s) abaixo.{" "}
+          <a href="/colaboradores">Limpar destaque</a>
+        </p>
+      ) : null}
       {employees.length === 0 ? (
         <p className={styles.subheading}>Nenhum colaborador cadastrado ainda.</p>
       ) : (
-        <ColaboradoresList employees={employees} convencoes={convencoes} />
+        <ColaboradoresList employees={employees} convencoes={convencoes} highlightIds={highlightIds} />
       )}
       <LixeiraSection />
     </div>

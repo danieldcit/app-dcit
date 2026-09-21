@@ -18,6 +18,9 @@
 }
 
 .card {
+  background: var(--color-background-element);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-color, #ddd);
   border-radius: 8px;
   padding: 1rem;
@@ -29,9 +32,20 @@
   margin: 0.25rem 0;
 }
 
+.cardSubtext {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #6b7280);
+  margin: 0.125rem 0;
+}
+
 .warning {
   color: #a15c00;
   font-size: 0.875rem;
+}
+
+.warning a:hover,
+.alertItem a:hover {
+  text-decoration: underline;
 }
 
 .classificationList {
@@ -52,4 +66,209 @@
 .classifyForm {
   display: flex;
   gap: 0.5rem;
+}
+
+.headcountList {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.headcountRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.headcountLabelRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+
+.headcountBarTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-background-selected, rgba(127, 127, 127, 0.25));
+  overflow: hidden;
+}
+
+.headcountBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-text, currentColor);
+  opacity: 0.7;
+}
+
+.alertGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.alertGroupHeader {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.alertItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.alertItem p {
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary, #6b7280);
+  margin-top: -1rem;
+}
+
+.filterField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+}
+
+.compositionList {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.compositionRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.colaboradorTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.colaboradorTable th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #6b7280);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color, #ddd);
+  white-space: nowrap;
+}
+
+.colaboradorTable td {
+  padding: 0.5rem 0.75rem;
+  white-space: nowrap;
+}
+
+.colaboradorTableRow {
+  cursor: pointer;
+}
+
+.colaboradorTableRow:nth-child(even) {
+  background: var(--color-background-selected, rgba(127, 127, 127, 0.08));
+}
+
+.colaboradorTableRow:hover {
+  background: var(--color-background-selected, rgba(127, 127, 127, 0.16));
+}
+
+.colaboradorTableChevron {
+  color: var(--color-text-secondary, #6b7280);
+}
+
+.colaboradorTableRowPending:nth-child(even) {
+  background: var(--color-background-selected, rgba(127, 127, 127, 0.08));
+}
+
+.pendingStatus {
+  color: #a15c00;
+  font-style: italic;
+}
+
+.helpIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-text-secondary, #6b7280);
+  color: var(--color-text-secondary, #6b7280);
+  font-size: 0.65rem;
+  cursor: help;
+}
+
+.dialogTitle {
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+.dialogClose {
+  appearance: none;
+  border: 1px solid var(--border-color, #ddd);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  margin-top: 0.75rem;
+  cursor: pointer;
+  background: none;
+  color: var(--color-text);
+}
+
+.dialog {
+  margin: auto;
+  border: none;
+  border-radius: 12px;
+  padding: 1.25rem;
+  width: min(560px, calc(100vw - 48px));
+  max-height: 85vh;
+  overflow-y: auto;
+  background: var(--color-modal-background);
+  color: var(--color-text);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.raioXTotal {
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0;
+}
+
+.trendChart {
+  width: 100%;
+  height: 120px;
+  color: var(--color-text);
+}
+
+.trendLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--color-text-secondary, #6b7280);
+  margin-top: 0.25rem;
+}
+
+.updatedFooter {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary, #6b7280);
 }

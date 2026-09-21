@@ -31,6 +31,7 @@ export async function saveFiscalParametros(
 ): Promise<FiscalParametrosState> {
   const inssPatronalPercent = formData.get("inssPatronalPercent");
   const ratPercent = formData.get("ratPercent");
+  const terceirosPercent = formData.get("terceirosPercent");
   const fgtsPercent = formData.get("fgtsPercent");
   const fonteLegal = formData.get("fonteLegal");
   const vigenciaData = formData.get("vigenciaData");
@@ -39,6 +40,7 @@ export async function saveFiscalParametros(
   if (
     typeof inssPatronalPercent !== "string" ||
     typeof ratPercent !== "string" ||
+    typeof terceirosPercent !== "string" ||
     typeof fgtsPercent !== "string"
   ) {
     return { error: "Dados do formulário inválidos.", success: false };
@@ -47,6 +49,7 @@ export async function saveFiscalParametros(
   const payload = {
     inssPatronalPercent: inssPatronalPercent === "" ? null : inssPatronalPercent,
     ratPercent: ratPercent === "" ? null : ratPercent,
+    terceirosPercent: terceirosPercent === "" ? null : terceirosPercent,
     fgtsPercent: fgtsPercent === "" ? null : fgtsPercent,
     sujeitoDesoneracaoFolha,
     fonteLegal: typeof fonteLegal === "string" && fonteLegal !== "" ? fonteLegal : null,

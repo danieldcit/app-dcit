@@ -84,6 +84,7 @@ describe('FiscalController', () => {
   const VALID_BODY = {
     inssPatronalPercent: 20,
     ratPercent: 2,
+    terceirosPercent: 5.8,
     fgtsPercent: 8,
     sujeitoDesoneracaoFolha: false,
     fonteLegal: 'Lei 8.212/1991',

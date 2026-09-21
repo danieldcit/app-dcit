@@ -125,5 +125,5 @@ export const GESTOR_CAREER_LINK: SidebarLink = {
 // conversation, 2026-09-20).
 export const GESTOR_FISCAL_LINK: SidebarLink = {
   href: "/fiscal-tributos",
-  label: "Fiscal & Tributos 2026",
+  label: "Tributos 2026",
 };

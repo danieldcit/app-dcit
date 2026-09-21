@@ -31,6 +31,16 @@
   background: var(--color-background-element);
 }
 
+.itemHighlighted {
+  border: 2px solid #a15c00;
+  background: color-mix(in srgb, #a15c00 12%, var(--color-background-element));
+}
+
+.highlightBanner {
+  font-size: 14px;
+  color: #a15c00;
+}
+
 .itemName {
   flex: 0 0 240px;
   overflow: hidden;

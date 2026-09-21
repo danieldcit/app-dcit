@@ -32,9 +32,11 @@ type Employee = {
 export function ColaboradoresList({
   employees,
   convencoes,
+  highlightIds = [],
 }: {
   employees: Employee[];
   convencoes: { id: string; nome: string }[];
+  highlightIds?: string[];
 }) {
   const [query, setQuery] = useState("");
 
@@ -59,7 +61,12 @@ export function ColaboradoresList({
       ) : (
         <ul className={styles.list}>
           {filtered.map((employee) => (
-            <ColaboradoresRow key={employee.userId} employee={employee} convencoes={convencoes} />
+            <ColaboradoresRow
+              key={employee.userId}
+              employee={employee}
+              convencoes={convencoes}
+              highlighted={highlightIds.includes(employee.userId)}
+            />
           ))}
         </ul>
       )}

@@ -9,6 +9,7 @@ import type { Session } from "@/lib/session";
 
 import { changePasswordAction, type ChangePasswordState } from "./account-actions";
 import { getMyAvatar, removeMyAvatar, updateMyAvatar } from "./avatar-actions";
+import { AvatarCropper } from "./avatar-cropper";
 import { LanguageSwitcher } from "./language-switcher";
 import { useLocale } from "./locale-context";
 import { PersonalDataDialog } from "./personal-data-dialog";
@@ -71,6 +72,7 @@ export function UserMenu({
   const [open, setOpen] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -102,10 +104,15 @@ export function UserMenu({
     event.target.value = "";
     if (!file || !ACCEPTED_TYPES.includes(file.type)) return;
     const dataUrl = await readFileAsDataUrl(file);
+    setCropSrc(dataUrl);
+  }
+
+  async function handleCropConfirm(croppedDataUrl: string) {
     setPending(true);
     try {
-      await updateMyAvatar(dataUrl);
-      setAvatar(dataUrl);
+      await updateMyAvatar(croppedDataUrl);
+      setAvatar(croppedDataUrl);
+      setCropSrc(null);
     } finally {
       setPending(false);
     }
@@ -209,46 +216,62 @@ export function UserMenu({
         ref={dialogRef}
         className={styles.avatarDialog}
         onClick={onDialogClick}
+        onClose={() => setCropSrc(null)}
       >
-        <div className={styles.avatarDialogHeader}>
-          {avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element -- data: URL, not an optimizable remote asset
-            <img src={avatar} alt="" className={styles.avatarImageLarge} />
-          ) : (
-            <div className={styles.avatarPlaceholderLarge}>
-              <UserIcon />
+        {cropSrc ? (
+          <>
+            <div className={styles.avatarDialogHeader}>
+              <span className={styles.avatarDialogTitle}>{t("Posicionar foto")}</span>
             </div>
-          )}
-          <span className={styles.avatarDialogTitle}>{t("Editar foto")}</span>
-        </div>
-        <label className={styles.avatarUploadLabel}>
-          {pending ? t("Enviando...") : t("Trocar foto")}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_TYPES.join(",")}
-            onChange={handleFileChange}
-            disabled={pending}
-            className={styles.avatarFileInput}
-          />
-        </label>
-        {avatar ? (
-          <button
-            type="button"
-            className={styles.avatarRemoveButton}
-            onClick={handleRemove}
-            disabled={pending}
-          >
-            {t("Remover foto")}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className={styles.avatarDialogClose}
-          onClick={() => dialogRef.current?.close()}
-        >
-          {t("Fechar")}
-        </button>
+            <AvatarCropper
+              imageSrc={cropSrc}
+              onConfirm={handleCropConfirm}
+              onCancel={() => setCropSrc(null)}
+            />
+          </>
+        ) : (
+          <>
+            <div className={styles.avatarDialogHeader}>
+              {avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element -- data: URL, not an optimizable remote asset
+                <img src={avatar} alt="" className={styles.avatarImageLarge} />
+              ) : (
+                <div className={styles.avatarPlaceholderLarge}>
+                  <UserIcon />
+                </div>
+              )}
+              <span className={styles.avatarDialogTitle}>{t("Editar foto")}</span>
+            </div>
+            <label className={styles.avatarUploadLabel}>
+              {pending ? t("Enviando...") : t("Trocar foto")}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_TYPES.join(",")}
+                onChange={handleFileChange}
+                disabled={pending}
+                className={styles.avatarFileInput}
+              />
+            </label>
+            {avatar ? (
+              <button
+                type="button"
+                className={styles.avatarRemoveButton}
+                onClick={handleRemove}
+                disabled={pending}
+              >
+                {t("Remover foto")}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={styles.avatarDialogClose}
+              onClick={() => dialogRef.current?.close()}
+            >
+              {t("Fechar")}
+            </button>
+          </>
+        )}
       </dialog>
 
       <dialog

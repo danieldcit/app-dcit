@@ -24,6 +24,15 @@ export function ParametrosForm({ parametros }: { parametros: FiscalParameters })
       <label htmlFor="ratPercent">RAT (%) — 1, 2 ou 3 conforme grau de risco</label>
       <input id="ratPercent" name="ratPercent" type="number" step="1" min="1" max="3" defaultValue={parametros?.ratPercent ?? ""} />
 
+      <label htmlFor="terceirosPercent">Terceiros / Sistema S (%) — varia conforme o enquadramento da empresa</label>
+      <input
+        id="terceirosPercent"
+        name="terceirosPercent"
+        type="number"
+        step="0.01"
+        defaultValue={parametros?.terceirosPercent ?? ""}
+      />
+
       <label htmlFor="fgtsPercent">FGTS (%)</label>
       <input id="fgtsPercent" name="fgtsPercent" type="number" step="0.01" defaultValue={parametros?.fgtsPercent ?? ""} />
 

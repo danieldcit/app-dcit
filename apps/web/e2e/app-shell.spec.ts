@@ -2,6 +2,14 @@ import { test, expect } from "@playwright/test";
 
 import { addSessionCookie, getRecordedRequests, mockApi, seedResponse } from "./test-session";
 
+// 1x1 PNG real (não bytes fake) — o cropper de avatar precisa decodificar a
+// imagem de verdade (onLoad do <img>, pra ler naturalWidth/naturalHeight)
+// antes de habilitar "Salvar"; um buffer fake nunca dispara onLoad.
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64"
+);
+
 test("rh sidebar shows items in the curated order, with Colaboradores expandable", async ({
   page,
   context,
@@ -56,6 +64,7 @@ test("gestor sidebar shows items in the curated order, with Colaboradores expand
     "Notificações",
     "Mural",
     "Gestão de Carreiras",
+    "Tributos 2026",
   ]);
 
   await page.getByRole("button", { name: "Expandir Colaboradores" }).click();
@@ -214,10 +223,15 @@ test("uploads a profile photo via the edit-photo dialog and shows it in the butt
 
   await page.getByLabel("Editar foto").click();
   await page.setInputFiles('input[type="file"]', {
-    name: "foto.jpg",
-    mimeType: "image/jpeg",
-    buffer: Buffer.from("fake-image-bytes"),
+    name: "foto.png",
+    mimeType: "image/png",
+    buffer: TINY_PNG,
   });
+
+  // Selecionar o arquivo abre a etapa de posicionar/recortar a foto, em vez
+  // de subir direto — só sobe depois de confirmar com "Salvar".
+  await expect(page.getByText("Posicionar foto")).toBeVisible();
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
 
   await expect(page.getByLabel("Menu do usuário").locator("img")).toBeVisible();
   await expect(page.getByRole("button", { name: "Remover foto" })).toBeVisible();
@@ -230,6 +244,33 @@ test("uploads a profile photo via the edit-photo dialog and shows it in the butt
     .toBeTruthy();
 });
 
+test("cancelling the photo-crop step discards the selection without uploading", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
+  await mockApi(request);
+  await page.goto("/");
+
+  await page.getByLabel("Menu do usuário").click();
+  await page.getByLabel("Editar foto").click();
+  await page.setInputFiles('input[type="file"]', {
+    name: "foto.png",
+    mimeType: "image/png",
+    buffer: TINY_PNG,
+  });
+
+  await expect(page.getByText("Posicionar foto")).toBeVisible();
+  await page.getByRole("button", { name: "Cancelar" }).click();
+
+  await expect(page.getByText("Editar foto")).toBeVisible();
+  await expect(page.getByLabel("Menu do usuário").locator("img")).toHaveCount(0);
+
+  const recorded = await getRecordedRequests(request);
+  expect(recorded.find((r) => r.method === "POST" && r.path === "/employees/me/avatar")).toBeFalsy();
+});
+
 test("removes a profile photo from the edit-photo dialog", async ({ page, context, request }) => {
   await addSessionCookie(context, { sub: "colaborador-1", role: "colaborador", name: "Ana" });
   await mockApi(request);
@@ -238,10 +279,11 @@ test("removes a profile photo from the edit-photo dialog", async ({ page, contex
   await page.getByLabel("Menu do usuário").click();
   await page.getByLabel("Editar foto").click();
   await page.setInputFiles('input[type="file"]', {
-    name: "foto.jpg",
-    mimeType: "image/jpeg",
-    buffer: Buffer.from("fake-image-bytes"),
+    name: "foto.png",
+    mimeType: "image/png",
+    buffer: TINY_PNG,
   });
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remover foto" })).toBeVisible();
 
   await page.getByRole("button", { name: "Remover foto" }).click();

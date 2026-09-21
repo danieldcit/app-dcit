@@ -2,6 +2,7 @@
 
 import { useRef, type ChangeEvent } from "react";
 
+import { TEAM_SUGGESTIONS } from "@/lib/team-suggestions";
 import styles from "./colaboradores.module.css";
 
 // Kept as local constants (not imported from @ponto-dcit/shared-types) to
@@ -62,7 +63,10 @@ const CARGO_LABELS: Record<(typeof CARGOS)[number], string> = {
 const NIVEIS = ["junior", "pleno", "senior", "especialista"] as const;
 type Nivel = (typeof NIVEIS)[number];
 
-const TEAM_SUGGESTIONS = ["SG MONITOR", "SGN 360", "SGM365", "SGP PORTAL"] as const;
+// Movida para @/lib/team-suggestions: um export deste arquivo "use client"
+// vira uma referência opaca de client component quando importado por um
+// Server Component (quebra em runtime, não é só um array simples do lado
+// servidor) — Fiscal & Tributos precisa do valor real durante o SSR.
 
 // Deve ficar em sincronia com CAREER_LADDER em
 // packages/shared-types/src/career-ladder.ts (mesmo raciocínio de

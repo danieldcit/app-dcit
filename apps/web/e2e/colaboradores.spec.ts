@@ -554,3 +554,29 @@ test("fills and submits the Time field in the create payload", async ({
     })
     .toBe("SGN360");
 });
+
+test("highlights employees passed via ?semSalario= and shows a banner with a clear-highlight link", async ({
+  page,
+  context,
+  request,
+}) => {
+  await addSessionCookie(context, { sub: "gestor-1", role: "gestor", name: "Bruno Gestor" });
+  await mockApi(request, {
+    employees: [
+      { userId: "colaborador-1", name: "Ana Colaboradora" },
+      { userId: "colaborador-2", name: "Bruno Colaborador" },
+    ],
+  });
+
+  await page.goto("/colaboradores?semSalario=colaborador-1");
+
+  await expect(page.getByText("Mostrando 1 colaborador(es) sem salário cadastrado")).toBeVisible();
+
+  const anaRow = page.getByText("Ana Colaboradora", { exact: true }).locator("..");
+  const brunoRow = page.getByText("Bruno Colaborador", { exact: true }).locator("..");
+  await expect(anaRow).toHaveClass(/itemHighlighted/);
+  await expect(brunoRow).not.toHaveClass(/itemHighlighted/);
+
+  await page.getByRole("link", { name: "Limpar destaque" }).click();
+  await expect(page).toHaveURL(/\/colaboradores$/);
+});

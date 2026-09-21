@@ -471,10 +471,36 @@ model FiscalParameters {
   id                      String    @id @default("default")
   inssPatronalPercent     Float?
   ratPercent              Float? // 1 | 2 | 3, conforme grau de risco da atividade
+  terceirosPercent        Float? // contribuições a terceiros/Sistema S — varia por enquadramento, opcional
   fgtsPercent             Float?
   sujeitoDesoneracaoFolha Boolean?
   fonteLegal              String? // texto livre citando lei/norma e enquadramento
   vigenciaData            DateTime?
   updatedAt               DateTime  @updatedAt
   updatedByUserId         String?
+}
+
+// Um ponto por mês, capturado pelo cron em FiscalService (dia 1, 05:00
+// América/São Paulo). team/tipoContratacao usam "" (não null) como
+// sentinela de "sem filtro nesse eixo" — chave composta única do Prisma não
+// aceita null em findUnique/upsert mesmo com coluna nullable, então null
+// como sentinela quebraria o upsert idempotente. Cada linha é OU o total
+// geral (os dois ""), OU um recorte por time (tipoContratacao ""), OU um
+// recorte por tipo de contratação (team "") — nunca os dois preenchidos
+// juntos, pois o gráfico de evolução só filtra por um eixo por vez (ver
+// design spec). Sem backfill: a série começa vazia a partir de quando este
+// modelo entrou em produção, nunca inventando dado retroativo.
+model FiscalCostSnapshot {
+  id               String   @id @default(cuid())
+  month            DateTime
+  team             String   @default("")
+  tipoContratacao  String   @default("")
+  headcountTotal   Int
+  custoBase        Float
+  custoBeneficios  Float
+  encargos         Float?
+  custoMensalTotal Float
+  createdAt        DateTime @default(now())
+
+  @@unique([month, team, tipoContratacao])
 }

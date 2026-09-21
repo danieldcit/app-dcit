@@ -49,12 +49,12 @@
 }
 
 [data-theme="light"] .sidebar {
-  background: rgba(255, 255, 255, 0.6);
-  border-right: 1px solid rgba(10, 14, 22, 0.08);
+  background: rgba(255, 255, 255, 0.86);
+  border-right: 1px solid rgba(10, 14, 22, 0.1);
   --color-text: #14161a;
-  --color-background-element: rgba(255, 255, 255, 0.82);
-  --color-background-selected: rgba(10, 14, 22, 0.1);
-  --color-text-secondary: rgba(20, 22, 26, 0.7);
+  --color-background-element: rgba(255, 255, 255, 0.9);
+  --color-background-selected: rgba(10, 14, 22, 0.12);
+  --color-text-secondary: rgba(20, 22, 26, 0.82);
 }
 
 .sidebarCollapsed {
@@ -430,6 +430,26 @@
   height: 20px;
 }
 
+/* Estes painéis flutuantes (menu do usuário, busca, editar foto, dados
+   pessoais) são sempre "escuros" (fundo #1c2230), em qualquer tema da
+   página — mas vários elementos internos leem os tokens --color-text/
+   --color-background-*, que o tema claro inverte pra tons escuros (pensados
+   pro fundo claro de .main/.sidebar). Sem isso, o texto fica escuro sobre
+   fundo escuro no modo claro. Redefinindo os tokens aqui garante contraste
+   correto nos dois temas, sem precisar caçar cada filho um por um.
+   Ver captura de tela do usuário 2026-09-21: menu do usuário ilegível no
+   modo claro. */
+.userMenuPanel,
+.searchDialog,
+.avatarDialog,
+.personalDataDialog {
+  --color-text: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-background: #1c2230;
+  --color-background-element: rgba(255, 255, 255, 0.08);
+  --color-background-selected: rgba(255, 255, 255, 0.12);
+}
+
 .userMenuPanel {
   position: absolute;
   top: calc(100% + 8px);
@@ -441,6 +461,7 @@
   padding: 12px;
   border-radius: 12px;
   background: #1c2230;
+  color: #ffffff;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   z-index: 10;
 }
@@ -704,6 +725,69 @@
 
 .avatarDialogClose:hover {
   background: var(--color-background-selected);
+}
+
+.avatarCropper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatarCropViewport {
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  touch-action: none;
+}
+
+.avatarCropImage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  cursor: grab;
+  user-select: none;
+}
+
+.avatarCropImage:active {
+  cursor: grabbing;
+}
+
+.avatarCropZoom {
+  width: 100%;
+}
+
+.avatarCropActions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.avatarCropActions .avatarDialogClose {
+  margin-top: 0;
+}
+
+.avatarCropConfirm {
+  appearance: none;
+  flex: 1;
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  background: color-mix(in srgb, var(--color-status-info) 70%, transparent);
+  cursor: pointer;
+}
+
+.avatarCropConfirm:hover {
+  background: color-mix(in srgb, var(--color-status-info) 85%, transparent);
+}
+
+.avatarCropConfirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .passwordForm {

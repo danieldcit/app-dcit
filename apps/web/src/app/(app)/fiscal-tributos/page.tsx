@@ -11,10 +11,33 @@ export type FiscalDashboard = {
   custoBeneficios: number;
   encargos: number | null;
   encargosConfigurados: boolean;
+  encargosPercentual: number | null;
+  encargosBreakdown: { inssPatronal: number; rat: number; terceiros: number; fgts: number; total: number } | null;
+  encargosPercentuais: { inssPatronal: number; rat: number; terceiros: number; fgts: number } | null;
+  folhaCLTConsiderada: number;
+  cltComSalario: number;
   custoMensalTotal: number;
   custoMedioPorColaborador: number;
+  custoMedioComDadosCompletos: number | null;
+  custosPorColaborador: {
+    userId: string;
+    name: string;
+    tipoContratacao: string | null;
+    salarioMensal: number | null;
+    encargos: number | null;
+    encargosBreakdown: { inssPatronal: number; rat: number; terceiros: number; fgts: number; total: number } | null;
+    beneficios: number;
+    custoTotal: number;
+  }[];
+  variacaoCustoMensalPercent: number | null;
+  variacaoCustoMedioPercent: number | null;
   colaboradoresSemSalario: number;
   naoClassificados: { userId: string; name: string }[];
+  semSalario: { userId: string; name: string }[];
+  parametrosAtualizadoEm: string | null;
+  parametrosVigenciaData: string | null;
+  historico: { month: string; custoMensalTotal: number; headcountTotal: number }[];
+  historicoCombinacaoNaoSuportada: boolean;
 };
 
 export default async function FiscalTributosPage({

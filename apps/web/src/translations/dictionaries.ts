@@ -30,6 +30,7 @@ const en: Dictionary = {
   "RH": "HR",
   "Gestão de Carreiras": "Career Management",
   "Fiscal & Tributos 2026": "Fiscal & Tax 2026",
+  "Tributos 2026": "Tax 2026",
   "Sistema de Gestão de Pessoas": "People Management System",
   "Expandir menu": "Expand menu",
   "Recolher menu": "Collapse menu",
@@ -87,6 +88,8 @@ const en: Dictionary = {
   "Cidade": "City",
   "Estado (UF)": "State",
   "Salvar": "Save",
+  "Cancelar": "Cancel",
+  "Zoom": "Zoom",
   "Dados salvos com sucesso.": "Data saved successfully.",
 
   // Ajuda
@@ -117,6 +120,7 @@ const es: Dictionary = {
   "RH": "RR. HH.",
   "Gestão de Carreiras": "Gestión de carreras",
   "Fiscal & Tributos 2026": "Fiscal y Tributos 2026",
+  "Tributos 2026": "Tributos 2026",
   "Sistema de Gestão de Pessoas": "Sistema de Gestión de Personas",
   "Expandir menu": "Expandir menú",
   "Recolher menu": "Contraer menú",
@@ -174,6 +178,8 @@ const es: Dictionary = {
   "Cidade": "Ciudad",
   "Estado (UF)": "Provincia",
   "Salvar": "Guardar",
+  "Cancelar": "Cancelar",
+  "Zoom": "Zoom",
   "Dados salvos com sucesso.": "Datos guardados con éxito.",
 
   // Ajuda

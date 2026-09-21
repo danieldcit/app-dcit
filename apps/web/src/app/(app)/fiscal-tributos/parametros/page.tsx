@@ -7,6 +7,7 @@ import { ParametrosForm } from "./parametros-form";
 export type FiscalParameters = {
   inssPatronalPercent: number | null;
   ratPercent: number | null;
+  terceirosPercent: number | null;
   fgtsPercent: number | null;
   sujeitoDesoneracaoFolha: boolean | null;
   fonteLegal: string | null;
