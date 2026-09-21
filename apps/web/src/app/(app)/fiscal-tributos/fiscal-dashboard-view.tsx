@@ -13,7 +13,7 @@ export function FiscalDashboardView({
   tipoContratacao,
 }: {
   dashboard: FiscalDashboard;
-  naoClassificados: { userId: string; name: string; tipoContratacao: string | null }[];
+  naoClassificados: { userId: string; name: string }[];
   team: string;
   tipoContratacao: string;
 }) {
@@ -52,8 +52,8 @@ export function FiscalDashboardView({
           <ul>
             <li>Salários/contratos: {BRL.format(dashboard.custoBase)}</li>
             <li>Benefícios: {BRL.format(dashboard.custoBeneficios)}</li>
-            {dashboard.encargosConfigurados ? (
-              <li>Encargos (CLT): {BRL.format(dashboard.encargos ?? 0)}</li>
+            {dashboard.encargos !== null ? (
+              <li>Encargos (CLT): {BRL.format(dashboard.encargos)}</li>
             ) : null}
           </ul>
           {dashboard.colaboradoresSemSalario > 0 ? (
@@ -70,8 +70,8 @@ export function FiscalDashboardView({
 
         <section className={styles.card}>
           <h2>Impacto tributário estimado</h2>
-          {dashboard.encargosConfigurados ? (
-            <p className={styles.bigNumber}>{BRL.format(dashboard.encargos ?? 0)}</p>
+          {dashboard.encargos !== null ? (
+            <p className={styles.bigNumber}>{BRL.format(dashboard.encargos)}</p>
           ) : (
             <>
               <p>Configure os parâmetros fiscais da empresa para ver o impacto tributário estimado.</p>

@@ -100,6 +100,25 @@ describe('FiscalService.getDashboard', () => {
     expect(result.headcountTotal).toBe(0);
     expect(result.custoMedioPorColaborador).toBe(0);
   });
+
+  it('returns naoClassificados with only the unclassified employees, respecting filters', async () => {
+    await createEmployee({
+      userId: 'fiscal-test-10',
+      name: 'Ana Não Classificada',
+      tipoContratacao: null,
+      team: 'fiscal-test-naoclass',
+    });
+    await createEmployee({
+      userId: 'fiscal-test-11',
+      name: 'Bruno CLT',
+      tipoContratacao: 'CLT',
+      team: 'fiscal-test-naoclass',
+    });
+
+    const result = await service.getDashboard({ team: 'fiscal-test-naoclass' });
+
+    expect(result.naoClassificados).toEqual([{ userId: 'fiscal-test-10', name: 'Ana Não Classificada' }]);
+  });
 });
 
 describe('FiscalService parametros', () => {

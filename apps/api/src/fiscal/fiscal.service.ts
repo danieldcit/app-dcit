@@ -15,6 +15,7 @@ export class FiscalService {
         ...(filters.team ? { team: filters.team } : {}),
         ...(filters.tipoContratacao ? { tipoContratacao: filters.tipoContratacao } : {}),
       },
+      select: { userId: true, name: true, tipoContratacao: true, salarioMensal: true },
     });
 
     const headcountPorTipo = {
@@ -50,6 +51,10 @@ export class FiscalService {
     const custoMensalTotal = custoBase + custoBeneficios + (encargos ?? 0);
     const headcountTotal = employees.length;
 
+    const naoClassificados = employees
+      .filter((e) => e.tipoContratacao === null)
+      .map((e) => ({ userId: e.userId, name: e.name }));
+
     return {
       headcountTotal,
       headcountPorTipo,
@@ -60,6 +65,7 @@ export class FiscalService {
       custoMensalTotal,
       custoMedioPorColaborador: headcountTotal > 0 ? custoMensalTotal / headcountTotal : 0,
       colaboradoresSemSalario,
+      naoClassificados,
     };
   }
 

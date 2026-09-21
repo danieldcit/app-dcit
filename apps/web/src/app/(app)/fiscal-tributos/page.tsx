@@ -14,6 +14,7 @@ export type FiscalDashboard = {
   custoMensalTotal: number;
   custoMedioPorColaborador: number;
   colaboradoresSemSalario: number;
+  naoClassificados: { userId: string; name: string }[];
 };
 
 export default async function FiscalTributosPage({
@@ -34,15 +35,14 @@ export default async function FiscalTributosPage({
   }
   const queryString = query.toString();
 
-  const [dashboard, naoClassificados] = await Promise.all([
-    apiFetchJson<FiscalDashboard>(`/fiscal/dashboard${queryString ? `?${queryString}` : ""}`),
-    apiFetchJson<{ userId: string; name: string; tipoContratacao: string | null }[]>("/employees"),
-  ]);
+  const dashboard = await apiFetchJson<FiscalDashboard>(
+    `/fiscal/dashboard${queryString ? `?${queryString}` : ""}`,
+  );
 
   return (
     <FiscalDashboardView
       dashboard={dashboard}
-      naoClassificados={naoClassificados.filter((e) => e.tipoContratacao === null)}
+      naoClassificados={dashboard.naoClassificados}
       team={typeof params.team === "string" ? params.team : ""}
       tipoContratacao={typeof params.tipoContratacao === "string" ? params.tipoContratacao : ""}
     />

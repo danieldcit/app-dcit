@@ -257,6 +257,9 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "PATCH" && /^\/employees\/[^/]+\/personal-data$/.test(url.pathname)) {
     return sendJson(res, 200, { userId: url.pathname.split("/")[2], ...body });
   }
+  if (req.method === "PATCH" && /^\/employees\/[^/]+\/tipo-contratacao$/.test(url.pathname)) {
+    return sendJson(res, 200, { userId: url.pathname.split("/")[2], ...body });
+  }
   if (req.method === "PATCH" && /^\/employees\/[^/]+$/.test(url.pathname)) {
     return sendJson(res, 200, { userId: url.pathname.split("/")[2], ...body });
   }
